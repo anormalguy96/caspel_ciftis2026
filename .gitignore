@@ -1,0 +1,27 @@
+# Python
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# Data / temporary artifacts
+data/*
+!data/presentations/
+!data/presentations/.gitkeep
+
+# Node.js
+node_modules/
+.env
+*.log
+
+# Docker
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# IDE / Editor
+.idea/
+.vscode/
