@@ -1,12 +1,12 @@
 {
   "brand": {
     "name": "CASPEL",
-    "exhibition": "CIFTIS 2026 • Beijing",
+    "exhibition": "CIFTIS 2026 · Beijing",
     "tagline": "Digital Presentation Hub"
   },
   "hero": {
-    "title": "Explore Caspel Solutions",
-    "subtitle": "Discover enterprise technology platforms and sovereign digital transformation solutions showcased at CIFTIS 2026."
+    "title": "CASPEL Enterprise Solutions",
+    "subtitle": "Enterprise software for ERP, procurement management, and maritime surveillance — presented at CIFTIS 2026 in Beijing."
   },
   "products": {
     "caspel": {
@@ -42,7 +42,10 @@
     "back": "Back to Solutions",
     "submit": "Submit Request",
     "submitting": "Submitting...",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again",
+    "openInNewTab": "Open in new tab",
+    "contact": "Contact CASPEL"
   },
   "demoForm": {
     "title": "Request a Demo",
@@ -68,7 +71,10 @@
       "How does CASPEL PMS automate procurement bidding?",
       "What are the compliance capabilities of IRISSEA LRIT?"
     ],
-    "sourcesLabel": "Sources cited:"
+    "sourcesLabel": "Sources cited:",
+    "unavailable": "CASPEL AI could not be reached just now. Nothing was answered — please try again in a moment, or speak with our team at the CASPEL stand.",
+    "rateLimited": "That is a lot of questions in a short time. Please wait a moment and try again.",
+    "networkError": "The connection dropped before an answer came back. Please try again."
   },
   "kiosk": {
     "tapPrompt": "TAP SCREEN TO SCAN",
@@ -76,8 +82,18 @@
     "dismissPrompt": "Tap anywhere to return to presentation"
   },
   "footer": {
-    "website": "caspel.com",
+    "website": "https://www.caspel.com",
+    "websiteLabel": "caspel.com",
     "email": "info@caspel.com",
+    "linkedin": "https://www.linkedin.com/company/caspel",
     "copyright": "© 2026 CASPEL LLC. All rights reserved."
+  },
+  "presentation": {
+    "unavailableTitle": "Not yet published",
+    "unavailableText": "This presentation has not been released for CIFTIS 2026 yet. Our team at the CASPEL stand can take you through it in person.",
+    "errorTitle": "Presentation status unavailable",
+    "errorText": "We could not reach the CASPEL server to check which presentations are published. This is a temporary connection problem, not a missing document.",
+    "viewerErrorTitle": "This presentation could not be displayed",
+    "viewerErrorText": "The document did not finish loading in this browser. You can try again, open it in a new tab, or download it to your device."
   }
 }

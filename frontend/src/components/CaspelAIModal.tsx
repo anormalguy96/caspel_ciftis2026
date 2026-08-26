@@ -1,14 +1,30 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Sparkles, Bot, User, BookOpen } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Send, Bot, User, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { sendChatMessage } from '../services/api';
+import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
 import en from '../locales/en.json';
+import { useExitTransition } from '../hooks/useExitTransition';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface CaspelAIModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+interface ChatFailure {
+  message: string;
+  /** The question to re-send if the visitor taps Retry. */
+  question: string;
+}
+
+const Dots: React.FC = () => (
+  <span className="u-dots" aria-hidden="true">
+    <span style={{ ['--i' as string]: 0 }} />
+    <span style={{ ['--i' as string]: 1 }} />
+    <span style={{ ['--i' as string]: 2 }} />
+  </span>
+);
 
 export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -21,141 +37,163 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [failure, setFailure] = useState<ChatFailure | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const transitionState = useExitTransition(isOpen);
+  const panelRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
+
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isOpen]);
+    if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, failure, isOpen]);
 
-  if (!isOpen) return null;
-
-  const handleSendMessage = async (text: string) => {
-    const query = text.trim();
-    if (!query || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: 'user_' + Date.now(),
-      role: 'user',
-      content: query,
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
+  const ask = useCallback(async (query: string, echoQuestion: boolean) => {
+    setFailure(null);
     setIsLoading(true);
 
-    trackAnalyticsEvent('AI_QUESTION', undefined, { query });
+    if (echoQuestion) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `user_${Date.now()}`, role: 'user', content: query, timestamp: new Date().toISOString() },
+      ]);
+      // Count the question without copying its text here: the message is already
+      // stored by /api/chat, and logging it twice spreads visitor-entered content
+      // across two systems for no benefit.
+      trackAnalyticsEvent('AI_QUESTION');
+    }
 
     try {
-      const sessionId = getSessionId();
-      const response = await sendChatMessage(sessionId, query);
-
-      const assistantMessage: ChatMessage = {
-        id: 'assistant_' + Date.now(),
-        role: 'assistant',
-        content: response.answer,
-        sources: response.sources,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch {
-      const errorMessage: ChatMessage = {
-        id: 'err_' + Date.now(),
-        role: 'assistant',
-        content: 'CASPEL AI is temporarily offline. Please explore our presentations or request a demo with our team.',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      const response = await sendChatMessage(getSessionId(), query);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant_${Date.now()}`,
+          role: 'assistant',
+          content: response.answer,
+          sources: response.sources,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } catch (error) {
+      // A failed call is NOT an answer. Recording it as an assistant message
+      // would put a service outage into the transcript as though CASPEL AI had
+      // replied, and would count toward answered questions in the exhibition
+      // report. It is surfaced as an explicit, retryable failure instead.
+      const message =
+        error instanceof ChatRateLimitedError
+          ? en.ai.rateLimited
+          : error instanceof ChatUnavailableError
+            ? en.ai.unavailable
+            : en.ai.networkError;
+      setFailure({ question: query, message });
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const handleSendMessage = (text: string) => {
+    const query = text.trim();
+    if (!query || isLoading) return;
+    setInputValue('');
+    void ask(query, true);
   };
 
+  if (transitionState === null) return null;
+
   return (
-    <div style={styles.backdrop} onClick={onClose}>
+    <div
+      className="modal-backdrop u-backdrop"
+      data-state={transitionState}
+      onClick={onClose}
+    >
       <div
-        style={styles.modalContent}
+        ref={panelRef}
+        tabIndex={-1}
+        className="modal modal--chat u-panel"
+        data-state={transitionState}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="ai-modal-title"
       >
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerTitleGroup}>
-            <div style={styles.aiBadge}>
-              <Sparkles size={18} color="#00c2ff" />
-            </div>
+        <div className="modal__header">
+          <div className="chat__brand">
+            <span className="chat__brand-icon" aria-hidden="true">
+              <Bot size={18} />
+            </span>
             <div>
-              <h2 style={styles.title}>{en.ai.title}</h2>
-              <p style={styles.subtitle}>{en.ai.subtitle}</p>
+              <h2 className="modal__title" id="ai-modal-title">
+                {en.ai.title}
+              </h2>
+              <p className="modal__subtitle">{en.ai.subtitle}</p>
             </div>
           </div>
-          <button onClick={onClose} style={styles.closeBtn} aria-label="Close AI chat">
-            <X size={20} color="#94a3b8" />
+          <button
+            type="button"
+            className="modal__close"
+            onClick={onClose}
+            aria-label={en.actions.close}
+          >
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Message Log */}
-        <div style={styles.messagesContainer}>
+        <div className="chat__log" role="log" aria-live="polite">
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                ...styles.messageRow,
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              {msg.role === 'assistant' && (
-                <div style={styles.avatarAssistant}>
-                  <Bot size={16} color="#00c2ff" />
-                </div>
-              )}
+            <div key={msg.id} className={`chat__row chat__row--${msg.role}`}>
+              <span className={`chat__avatar chat__avatar--${msg.role}`} aria-hidden="true">
+                {msg.role === 'assistant' ? <Bot size={15} /> : <User size={15} />}
+              </span>
 
-              <div
-                style={{
-                  ...styles.bubble,
-                  backgroundColor: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-surface-elevated)',
-                  borderColor: msg.role === 'user' ? 'var(--color-primary-hover)' : 'var(--color-border)',
-                }}
-              >
-                <div style={styles.bubbleText}>{msg.content}</div>
+              <div className={`chat__bubble chat__bubble--${msg.role}`}>
+                <p className="chat__text">{msg.content}</p>
 
                 {msg.sources && msg.sources.length > 0 && (
-                  <div style={styles.sourcesBox}>
-                    <div style={styles.sourcesHeader}>
-                      <BookOpen size={12} color="var(--color-accent)" />
+                  <div className="chat__sources">
+                    <span className="chat__sources-head">
+                      <BookOpen size={13} aria-hidden="true" />
                       <span>{en.ai.sourcesLabel}</span>
-                    </div>
-                    <div style={styles.sourceChips}>
+                    </span>
+                    <span className="chat__chips">
                       {msg.sources.map((src, i) => (
-                        <span key={i} style={styles.sourceChip}>
+                        <span key={i} className="chat__chip">
                           {src.document} — p.{src.page}
                         </span>
                       ))}
-                    </div>
+                    </span>
                   </div>
                 )}
               </div>
-
-              {msg.role === 'user' && (
-                <div style={styles.avatarUser}>
-                  <User size={16} color="#ffffff" />
-                </div>
-              )}
             </div>
           ))}
 
           {isLoading && (
-            <div style={styles.loadingRow}>
-              <div style={styles.avatarAssistant}>
-                <Bot size={16} color="#00c2ff" />
+            <div className="chat__row chat__row--assistant">
+              <span className="chat__avatar chat__avatar--assistant" aria-hidden="true">
+                <Bot size={15} />
+              </span>
+              <div className="chat__bubble chat__bubble--assistant chat__bubble--loading">
+                <Dots />
               </div>
-              <div style={styles.loadingBubble}>
-                <div style={styles.dotPulse}></div>
-                <span style={styles.loadingText}>CASPEL AI is thinking...</span>
+            </div>
+          )}
+
+          {failure && (
+            <div className="chat__failure" role="alert" data-testid="chat-failure">
+              <span className="chat__failure-icon" aria-hidden="true">
+                <AlertTriangle size={16} />
+              </span>
+              <div className="chat__failure-body">
+                <p className="chat__failure-text">{failure.message}</p>
+                <button
+                  type="button"
+                  className="btn btn--secondary chat__failure-retry"
+                  onClick={() => void ask(failure.question, false)}
+                  disabled={isLoading}
+                >
+                  <RotateCw size={15} aria-hidden="true" />
+                  <span>{en.actions.retry}</span>
+                </button>
               </div>
             </div>
           )}
@@ -163,16 +201,16 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggested Questions */}
-        {messages.length <= 2 && (
-          <div style={styles.suggestedContainer}>
-            <span style={styles.suggestedLabel}>{en.ai.suggestedPrompt}</span>
-            <div style={styles.suggestedList}>
+        {messages.length <= 2 && !failure && (
+          <div className="chat__suggested">
+            <span className="chat__suggested-label">{en.ai.suggestedPrompt}</span>
+            <div className="chat__suggested-list">
               {en.ai.questions.map((q, idx) => (
                 <button
                   key={idx}
+                  type="button"
+                  className="chat__suggestion"
                   onClick={() => handleSendMessage(q)}
-                  style={styles.suggestedBtn}
                 >
                   {q}
                 </button>
@@ -181,245 +219,36 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           </div>
         )}
 
-        {/* Input Bar */}
         <form
+          className="chat__composer"
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage(inputValue);
           }}
-          style={styles.inputBar}
         >
+          <label className="visually-hidden" htmlFor="ai-input">
+            {en.ai.placeholder}
+          </label>
           <input
+            id="ai-input"
+            data-autofocus
+            className="field__input chat__input"
             type="text"
             placeholder={en.ai.placeholder}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            style={styles.chatInput}
+            autoComplete="off"
           />
           <button
             type="submit"
+            className="chat__send"
             disabled={!inputValue.trim() || isLoading}
-            style={{
-              ...styles.sendBtn,
-              opacity: !inputValue.trim() || isLoading ? 0.5 : 1,
-            }}
             aria-label="Send message"
           >
-            <Send size={18} color="#ffffff" />
+            <Send size={18} aria-hidden="true" />
           </button>
         </form>
       </div>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    backdropFilter: 'blur(8px)',
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: '560px',
-    height: '80vh',
-    maxHeight: '700px',
-    backgroundColor: 'var(--color-surface)',
-    borderTopLeftRadius: 'var(--radius-lg)',
-    borderTopRightRadius: 'var(--radius-lg)',
-    border: '1px solid var(--color-border)',
-    boxShadow: 'var(--shadow-modal)',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  header: {
-    padding: '16px 20px',
-    borderBottom: '1px solid var(--color-border)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(14, 23, 42, 0.95)',
-  },
-  headerTitleGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  aiBadge: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(0, 194, 255, 0.15)',
-    border: '1px solid rgba(0, 194, 255, 0.3)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: '17px',
-    fontWeight: '800',
-    color: 'var(--color-text)',
-    lineHeight: 1.1,
-  },
-  subtitle: {
-    fontSize: '11px',
-    color: 'var(--color-text-secondary)',
-  },
-  closeBtn: {
-    padding: '6px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  messagesContainer: {
-    flex: 1,
-    padding: '16px',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '14px',
-  },
-  messageRow: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '8px',
-    width: '100%',
-  },
-  avatarAssistant: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    backgroundColor: 'rgba(0, 194, 255, 0.15)',
-    border: '1px solid rgba(0, 194, 255, 0.3)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: '2px',
-  },
-  avatarUser: {
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--color-primary)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: '2px',
-  },
-  bubble: {
-    maxWidth: '82%',
-    padding: '12px 16px',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid',
-  },
-  bubbleText: {
-    fontSize: '14px',
-    lineHeight: 1.5,
-    whiteSpace: 'pre-wrap',
-    color: 'var(--color-text)',
-  },
-  sourcesBox: {
-    marginTop: '10px',
-    paddingTop: '8px',
-    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-  },
-  sourcesHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '11px',
-    fontWeight: '600',
-    color: 'var(--color-accent)',
-    marginBottom: '6px',
-  },
-  sourceChips: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
-  },
-  sourceChip: {
-    fontSize: '11px',
-    padding: '3px 8px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'rgba(0, 194, 255, 0.1)',
-    border: '1px solid rgba(0, 194, 255, 0.2)',
-    color: 'var(--color-text-secondary)',
-  },
-  loadingRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  loadingBubble: {
-    padding: '10px 14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    border: '1px solid var(--color-border)',
-  },
-  loadingText: {
-    fontSize: '13px',
-    color: 'var(--color-text-secondary)',
-    fontStyle: 'italic',
-  },
-  suggestedContainer: {
-    padding: '10px 16px',
-    borderTop: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface-card)',
-  },
-  suggestedLabel: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: 'var(--color-text-secondary)',
-    display: 'block',
-    marginBottom: '8px',
-  },
-  suggestedList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  suggestedBtn: {
-    padding: '8px 12px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    border: '1px solid var(--color-border)',
-    fontSize: '12px',
-    color: 'var(--color-text)',
-    textAlign: 'left',
-    transition: 'background-color var(--transition-fast)',
-  },
-  inputBar: {
-    padding: '12px 16px',
-    borderTop: '1px solid var(--color-border)',
-    display: 'flex',
-    gap: '10px',
-    backgroundColor: 'var(--color-surface)',
-  },
-  chatInput: {
-    flex: 1,
-    padding: '12px 16px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '14px',
-  },
-  sendBtn: {
-    padding: '0 16px',
-    borderRadius: 'var(--radius-md)',
-    background: 'var(--color-accent-gradient)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 };

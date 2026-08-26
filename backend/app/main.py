@@ -1,61 +1,70 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from app.core.config import settings
-from app.core.database import engine, Base
+
 from app.api.routes import router
+from app.core.config import settings
+from app.core.database import engine
+from app.core.rate_limit import install_rate_limiting
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("caspel_ciftis")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing CASPEL CIFTIS 2026 Backend...")
-    # Initialize pgvector extension & database tables if not already created
-    try:
-        async with engine.begin() as conn:
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database initialized successfully with vector extension.")
-    except Exception as e:
-        logger.warning(f"Database auto-initialization check notice: {e}")
+    # Refuse to come up misconfigured rather than serving an exhibition from a
+    # process with a weak database password or a mocked assistant.
+    settings.enforce_production_config()
 
+    logger.info("Starting CASPEL CIFTIS 2026 backend (env=%s)", settings.APP_ENV)
     yield
 
-    logger.info("Shutting down CASPEL CIFTIS 2026 Backend...")
-    await engine.dispose()
+    logger.info("Shutting down CASPEL CIFTIS 2026 backend")
+    if not settings.is_test:
+        await engine.dispose()
 
 
 app = FastAPI(
     title="CASPEL CIFTIS 2026 API",
     version="1.0.0",
-    description="Backend API for CASPEL CIFTIS 2026 Exhibition Hub, Leads, Analytics, and CASPEL AI RAG",
+    description="Public API for the CASPEL CIFTIS 2026 exhibition hub",
     lifespan=lifespan,
+    # The interactive schema browsers are a development convenience. In
+    # production they publish the full API surface to anyone who finds /docs.
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
-# CORS configuration (allow frontend origin)
+# CORS: an explicit allowlist. "*" together with allow_credentials makes
+# Starlette echo back any requesting origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
-# Include main router
+# Rate limiting for the unauthenticated, cost-bearing endpoints. Must be
+# installed before the routers that use it.
+install_rate_limiting(app)
+
 app.include_router(router, prefix="/api")
+
+
+# There is deliberately no /presentations/{filename} route. Presentation bytes
+# are served only through /api/presentations/{slug}/stream and /download, which
+# verify the file against its approved SHA256 first. A filename-addressed route
+# bypassed that check entirely and served whatever was in the directory.
 
 
 @app.get("/")
 async def root():
-    return {
-        "service": "CASPEL CIFTIS 2026 API",
-        "status": "operational",
-        "docs": "/docs"
-    }
+    return {"service": "CASPEL CIFTIS 2026 API", "status": "operational"}

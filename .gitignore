@@ -8,6 +8,10 @@ __pycache__
 data/*
 !data/presentations/
 !data/presentations/.gitkeep
+.backups/
+# Browser profiles created by local QA tooling. Never packaged, never inspected.
+.playwright/
+chrome-profile*/
 
 # Node.js
 node_modules/
@@ -25,3 +29,30 @@ build/
 # IDE / Editor
 .idea/
 .vscode/
+.claude/
+
+# Stale source snapshot, not application code.
+caspel_frontend_src.tar.gz
+
+# Documentation
+document.md
+PHASE1_REPORT.md
+ARCHITECTURE.md
+IMPLEMENTATION.md
+TODO.md
+CASPEL-CIFTIS-2026-PROJECT-SUMMARY.md
+CASPEL-CIFTIS-2026-PROJECT-GUIDELINES.md
+CASPEL-CIFTIS-2026-PHASE-1-DOCUMENTATION.md
+PHASE2_REPORT.md
+phase2_report.md
+report1.md
+report2.md
+prompt1.md
+prompt2.md
+.venv_wsl/
+
+PHASE1_REPORT.md
+implementation.md
+docs/PHASE2_1_VERIFICATION_REPORT.md
+# TypeScript incremental build cache
+*.tsbuildinfo

@@ -1,0 +1,165 @@
+/* ============================================================
+   KIOSK LAYER — CASPEL / CIFTIS 2026
+
+   The unattended booth display. Dark, calm, legible from a few
+   metres away. No looping decoration: the screen should read as a
+   sign, not a screensaver.
+   ============================================================ */
+
+.kiosk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+  background-color: var(--color-dark-bg);
+  color: var(--color-dark-text);
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+}
+
+.kiosk__stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+.kiosk__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.kiosk__logo {
+  height: 42px;
+  width: auto;
+  /* The brand mark is dark-on-light artwork; invert it for the dark panel
+     rather than shipping a second file. */
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.kiosk__eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.kiosk__center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.kiosk__title {
+  max-width: 18ch;
+  font-size: clamp(32px, 6vw, 64px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  color: var(--color-dark-text);
+}
+
+.kiosk__subtitle {
+  max-width: 40ch;
+  font-size: clamp(15px, 2vw, 21px);
+  line-height: 1.5;
+  color: var(--color-dark-text-secondary);
+}
+
+.kiosk__prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-dark-border);
+  border-radius: var(--radius-full);
+  background-color: var(--color-dark-surface);
+  color: var(--color-dark-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ── QR overlay ──────────────────────────────────────────── */
+
+.kiosk__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background-color: rgba(4, 34, 47, 0.82);
+}
+
+.kiosk__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-lg);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  cursor: default;
+}
+
+.kiosk__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.kiosk__card-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.kiosk__qr {
+  padding: var(--space-md);
+  background-color: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  line-height: 0;
+}
+
+.kiosk__instruction {
+  max-width: 32ch;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.kiosk__countdown {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Landscape booth screens: keep the prompt from being pushed off. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .kiosk__stage {
+    padding: var(--space-lg);
+  }
+
+  .kiosk__prompt {
+    margin-top: var(--space-md);
+  }
+}

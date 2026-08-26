@@ -12,6 +12,30 @@ export interface ChatApiResponse {
   session_id: string;
 }
 
+/**
+ * The assistant's backing provider is down, rate limited, or misconfigured.
+ *
+ * The server answers 503 for these rather than wrapping an apology in a 200,
+ * so the UI can offer a retry instead of presenting a failure as an answer.
+ */
+export class ChatUnavailableError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super('CASPEL AI is temporarily unavailable.');
+    this.name = 'ChatUnavailableError';
+    this.status = status;
+  }
+}
+
+/** Too many questions from one visitor in a short window. */
+export class ChatRateLimitedError extends Error {
+  constructor() {
+    super('Too many questions in a short time. Please wait a moment and try again.');
+    this.name = 'ChatRateLimitedError';
+  }
+}
+
 export async function submitLead(data: LeadFormData): Promise<LeadApiResponse> {
   const response = await fetch('/api/leads', {
     method: 'POST',
@@ -31,7 +55,7 @@ export async function submitLead(data: LeadFormData): Promise<LeadApiResponse> {
         }
       }
     } catch {
-      // fallback to generic message
+      // Keep the generic message; a non-JSON error body tells the visitor nothing.
     }
     throw new Error(errorDetail);
   }
@@ -46,9 +70,8 @@ export async function sendChatMessage(sessionId: string, message: string): Promi
     body: JSON.stringify({ session_id: sessionId, message }),
   });
 
-  if (!response.ok) {
-    throw new Error('Chat service encountered a network issue.');
-  }
+  if (response.status === 429) throw new ChatRateLimitedError();
+  if (!response.ok) throw new ChatUnavailableError(response.status);
 
   return response.json();
 }

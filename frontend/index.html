@@ -2,14 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- viewport-fit=cover for iPhone safe areas. Deliberately no
+         user-scalable=no: visitors must be able to zoom presentations. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
     <title>CASPEL — CIFTIS 2026 Digital Hub</title>
-    <meta name="description" content="CASPEL Technology Solutions at CIFTIS 2026 Exhibition in Beijing, China. Explore Caspel ERP, PMS, IRISSEA, and Corporate Presentations." />
-    <meta name="theme-color" content="#0a101d" />
-    <meta property="og:title" content="CASPEL — CIFTIS 2026 Digital Hub" />
-    <meta property="og:description" content="Explore CASPEL Enterprise Technology Solutions at CIFTIS 2026 Beijing." />
+    <meta
+      name="description"
+      content="CASPEL at CIFTIS 2026 in Beijing. View and download the Corporate, Caspel ERP, Caspel PMS and IRISSEA LRIT presentations, and request a demo."
+    />
+    <meta name="theme-color" content="#063044" />
+    <link rel="canonical" href="__VITE_PUBLIC_SITE_URL__/ciftis" />
+
+    <!-- Open Graph: the link is shared by QR, WeChat, LinkedIn and email
+         before and during the exhibition, so the card must render properly. -->
     <meta property="og:type" content="website" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔷</text></svg>" />
+    <meta property="og:site_name" content="CASPEL" />
+    <meta property="og:title" content="CASPEL — CIFTIS 2026 Digital Hub" />
+    <meta
+      property="og:description"
+      content="Explore CASPEL enterprise technology solutions at CIFTIS 2026 Beijing: Corporate, ERP, PMS and IRISSEA LRIT."
+    />
+    <meta property="og:url" content="__VITE_PUBLIC_SITE_URL__/ciftis" />
+    <meta property="og:image" content="__VITE_PUBLIC_SITE_URL__/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CASPEL — Enterprise Technology Solutions, CIFTIS 2026 Beijing" />
+    <meta property="og:locale" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CASPEL — CIFTIS 2026 Digital Hub" />
+    <meta
+      name="twitter:description"
+      content="Explore CASPEL enterprise technology solutions at CIFTIS 2026 Beijing."
+    />
+    <meta name="twitter:image" content="__VITE_PUBLIC_SITE_URL__/og-image.png" />
+
+    <link rel="icon" type="image/svg+xml" href="/caspel-logo-horizontal.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Self-hosted; no CDN reference anywhere in this document (document.md §24). -->
+    <link
+      rel="preload"
+      href="/fonts/Inter-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
   <body>
     <div id="root"></div>

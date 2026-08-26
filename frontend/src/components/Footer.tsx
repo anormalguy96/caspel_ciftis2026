@@ -1,75 +1,42 @@
 import React from 'react';
 import { Globe, Mail, Linkedin } from 'lucide-react';
 import en from '../locales/en.json';
+import caspelLogo from '../assets/caspel-logo-horizontal.svg';
 
-export const Footer: React.FC = () => {
-  return (
-    <footer style={styles.footer}>
-      <div className="container" style={styles.footerContent}>
-        <div style={styles.linkRow}>
-          <a
-            href="https://caspel.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.footerLink}
-          >
-            <Globe size={14} color="var(--color-accent)" />
-            <span>{en.footer.website}</span>
-          </a>
-          <a
-            href="mailto:info@caspel.com"
-            style={styles.footerLink}
-          >
-            <Mail size={14} color="var(--color-accent)" />
-            <span>{en.footer.email}</span>
-          </a>
-          <a
-            href="https://linkedin.com/company/caspel"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.footerLink}
-          >
-            <Linkedin size={14} color="var(--color-accent)" />
-            <span>LinkedIn</span>
-          </a>
-        </div>
-        <p style={styles.copyright}>{en.footer.copyright}</p>
+/**
+ * Contact details come from en.json so they can be corrected without touching
+ * markup. Every link here points at a real destination — decorative links that
+ * go nowhere are worse than no link at all.
+ */
+const LINKS = [
+  { key: 'website', href: en.footer.website, label: en.footer.websiteLabel, Icon: Globe, external: true },
+  { key: 'email', href: `mailto:${en.footer.email}`, label: en.footer.email, Icon: Mail, external: false },
+  { key: 'linkedin', href: en.footer.linkedin, label: 'LinkedIn', Icon: Linkedin, external: true },
+];
+
+export const Footer: React.FC = () => (
+  <footer className="site-footer">
+    <div className="container site-footer__inner">
+      <div className="site-footer__brand">
+        <img src={caspelLogo} alt="CASPEL" className="site-footer__logo" width={168} height={40} loading="lazy" />
+        <p className="site-footer__event">{en.brand.exhibition}</p>
       </div>
-    </footer>
-  );
-};
 
-const styles: Record<string, React.CSSProperties> = {
-  footer: {
-    width: '100%',
-    padding: '32px 0 40px 0',
-    borderTop: '1px solid var(--color-border)',
-    backgroundColor: 'rgba(7, 12, 24, 0.9)',
-    marginTop: 'auto',
-  },
-  footerContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '16px',
-    textAlign: 'center',
-  },
-  linkRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: '20px',
-  },
-  footerLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: '13px',
-    color: 'var(--color-text-secondary)',
-    transition: 'color var(--transition-fast)',
-  },
-  copyright: {
-    fontSize: '12px',
-    color: 'var(--color-text-muted)',
-  },
-};
+      <nav className="site-footer__links" aria-label="Contact CASPEL">
+        {LINKS.map(({ key, href, label, Icon, external }) => (
+          <a
+            key={key}
+            href={href}
+            className="site-footer__link u-link"
+            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          >
+            <Icon size={15} aria-hidden="true" />
+            <span>{label}</span>
+          </a>
+        ))}
+      </nav>
+
+      <p className="site-footer__copyright">{en.footer.copyright}</p>
+    </div>
+  </footer>
+);

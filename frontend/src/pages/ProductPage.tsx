@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Eye, Download, Calendar, Sparkles, FileText } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Eye,
+  Download,
+  Calendar,
+  MessageSquare,
+  FileText,
+  AlertTriangle,
+  RotateCw,
+} from 'lucide-react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
-import { PRODUCTS } from '../config/products';
-import { ProductSlug } from '../types';
+import { PRODUCTS, isProductSlug } from '../config/products';
+import { usePresentationManifest } from '../hooks/usePresentationManifest';
+import { downloadPresentation } from '../services/presentations';
 import { trackAnalyticsEvent } from '../services/analytics';
 import en from '../locales/en.json';
 
@@ -15,265 +25,161 @@ export const ProductPage: React.FC = () => {
   const navigate = useNavigate();
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const { getEntry, status, retry } = usePresentationManifest();
 
-  const productKey = (slug || 'caspel') as ProductSlug;
-  const product = PRODUCTS[productKey] || PRODUCTS.caspel;
+  const validSlug = isProductSlug(slug) ? slug : null;
+  const product = validSlug ? PRODUCTS[validSlug] : null;
+  const entry = validSlug ? getEntry(validSlug) : undefined;
+  const isAvailable = entry?.available ?? false;
 
   useEffect(() => {
-    trackAnalyticsEvent('PRODUCT_VIEW', product.slug);
-  }, [product.slug]);
+    if (validSlug) trackAnalyticsEvent('PRODUCT_VIEW', validSlug);
+  }, [validSlug]);
 
-  const handleDownload = () => {
-    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', product.slug);
-    const link = document.createElement('a');
-    link.href = product.presentationUrl;
-    link.download = product.downloadFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleDownload = useCallback(() => {
+    if (!validSlug || !product || !isAvailable) return;
+    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', validSlug);
+    downloadPresentation(validSlug, product.downloadFilename);
+  }, [validSlug, product, isAvailable]);
+
+  if (!validSlug || !product) {
+    return <Navigate to="/ciftis/not-found" replace />;
+  }
 
   return (
-    <div style={styles.pageWrapper}>
+    <div className="page">
       <Header />
 
-      <main className="container" style={styles.mainContent}>
-        {/* Back navigation */}
-        <div style={styles.backNav}>
-          <button onClick={() => navigate('/ciftis')} style={styles.backBtn}>
-            <ArrowLeft size={16} />
+      <main className="container page__main">
+        <div className="product__back">
+          <button
+            type="button"
+            className="btn btn--ghost product__back-btn"
+            onClick={() => navigate('/ciftis')}
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
             <span>{en.actions.back}</span>
           </button>
         </div>
 
-        {/* Product Header */}
-        <section style={styles.productHeader}>
-          <div style={{ ...styles.badge, borderColor: product.accentColor }}>
-            <span style={{ ...styles.badgeText, color: product.accentColor }}>
-              {product.badge}
-            </span>
-          </div>
-          <h1 style={styles.productTitle}>{product.name}</h1>
-          <p style={styles.productDescriptor}>{product.descriptor}</p>
-        </section>
+        <div className="product__layout">
+          <div className="product__primary">
+            <section className="product__header u-enter">
+              <h1 className="product__title">{product.name}</h1>
+              <p className="product__descriptor">{product.descriptor}</p>
+            </section>
 
-        {/* Overview Box */}
-        <section style={styles.overviewBox}>
-          <p style={styles.summaryText}>{product.description}</p>
-        </section>
-
-        {/* Presentation Preview Card */}
-        <section style={styles.previewCard}>
-          <div style={styles.previewIllustration}>
-            <FileText size={48} color="var(--color-accent)" />
-            <span style={styles.previewLabel}>{product.downloadFilename}</span>
+            <section className="product__overview u-enter" style={{ ['--i' as string]: 1 }}>
+              <p className="product__summary">{product.description}</p>
+            </section>
           </div>
 
-          <div style={styles.actionButtons}>
-            <Link
-              to={`/ciftis/presentation/${product.slug}`}
-              onClick={() => trackAnalyticsEvent('PRESENTATION_VIEW', product.slug)}
-              style={styles.primaryActionBtn}
-            >
-              <Eye size={18} />
-              <span>{en.actions.viewPresentation}</span>
-            </Link>
+          <aside className="product__aside">
+            <section className="product__preview u-enter" style={{ ['--i' as string]: 1 }}>
+              <div className="product__preview-doc">
+                <FileText size={26} aria-hidden="true" className="product__preview-icon" />
+                <div className="product__preview-meta">
+                  <span className="product__preview-file">{product.downloadFilename}</span>
+                  {entry?.page_count ? (
+                    <span className="product__preview-pages">{entry.page_count} pages</span>
+                  ) : null}
+                </div>
+              </div>
 
-            <button onClick={handleDownload} style={styles.secondaryActionBtn}>
-              <Download size={18} />
-              <span>{en.actions.downloadPresentation}</span>
-            </button>
-          </div>
-        </section>
+              <div className="product__actions">
+                {status === 'loading' && (
+                  <div className="u-skeleton product__actions-skeleton" aria-hidden="true" />
+                )}
 
-        {/* Action Row: Demo & AI */}
-        <section style={styles.bottomActions}>
-          <button
-            onClick={() => {
-              trackAnalyticsEvent('DEMO_OPEN', product.slug);
-              setIsDemoModalOpen(true);
-            }}
-            style={styles.demoActionBtn}
-          >
-            <Calendar size={18} />
-            <span>{en.actions.requestDemo}</span>
-          </button>
+                {/* A server that cannot be reached is not a deck that does not
+                    exist. Saying "not yet published" here would be a false
+                    statement about CASPEL's materials. */}
+                {status === 'error' && (
+                  <div className="state-notice state-notice--error" role="alert">
+                    <span className="state-notice__icon" aria-hidden="true">
+                      <AlertTriangle size={16} />
+                    </span>
+                    <div className="state-notice__body">
+                      <p className="state-notice__title">{en.presentation.errorTitle}</p>
+                      <p className="state-notice__text">{en.presentation.errorText}</p>
+                      <button type="button" className="btn btn--secondary" onClick={retry}>
+                        <RotateCw size={15} aria-hidden="true" />
+                        <span>{en.actions.retry}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-          <button
-            onClick={() => {
-              trackAnalyticsEvent('AI_OPEN', product.slug);
-              setIsAiModalOpen(true);
-            }}
-            style={styles.aiActionBtn}
-          >
-            <Sparkles size={18} color="var(--color-accent)" />
-            <span>{en.actions.askAi}</span>
-          </button>
-        </section>
+                {status === 'ready' && isAvailable && (
+                  <>
+                    <Link
+                      to={`/ciftis/presentation/${product.slug}`}
+                      className="btn btn--primary btn--block"
+                      onClick={() => trackAnalyticsEvent('PRESENTATION_VIEW', product.slug)}
+                    >
+                      <Eye size={18} aria-hidden="true" />
+                      <span>{en.actions.viewPresentation}</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--block"
+                      onClick={handleDownload}
+                    >
+                      <Download size={18} aria-hidden="true" />
+                      <span>{en.actions.downloadPresentation}</span>
+                    </button>
+                  </>
+                )}
+
+                {status === 'ready' && !isAvailable && (
+                  <div className="state-notice">
+                    <div className="state-notice__body">
+                      <p className="state-notice__title">{en.presentation.unavailableTitle}</p>
+                      <p className="state-notice__text">{en.presentation.unavailableText}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="product__secondary u-enter" style={{ ['--i' as string]: 2 }}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => {
+                  trackAnalyticsEvent('DEMO_OPEN', product.slug);
+                  setIsDemoModalOpen(true);
+                }}
+              >
+                <Calendar size={18} aria-hidden="true" />
+                <span>{en.actions.requestDemo}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => {
+                  trackAnalyticsEvent('AI_OPEN', product.slug);
+                  setIsAiModalOpen(true);
+                }}
+              >
+                <MessageSquare size={18} aria-hidden="true" />
+                <span>{en.actions.askAi}</span>
+              </button>
+            </section>
+          </aside>
+        </div>
       </main>
 
       <Footer />
 
-      {/* Modals */}
       <RequestDemoModal
         isOpen={isDemoModalOpen}
         onClose={() => setIsDemoModalOpen(false)}
         defaultProduct={product.slug}
       />
-      <CaspelAIModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-      />
+      <CaspelAIModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  pageWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-  },
-  mainContent: {
-    paddingTop: '20px',
-    paddingBottom: '40px',
-  },
-  backNav: {
-    marginBottom: '20px',
-  },
-  backBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 14px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text-secondary)',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  productHeader: {
-    marginBottom: '20px',
-  },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '34px',
-    height: '34px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    border: '1px solid',
-    marginBottom: '12px',
-  },
-  badgeText: {
-    fontSize: '14px',
-    fontWeight: '700',
-  },
-  productTitle: {
-    fontSize: '28px',
-    fontWeight: '800',
-    color: 'var(--color-text)',
-    marginBottom: '4px',
-  },
-  productDescriptor: {
-    fontSize: '15px',
-    color: 'var(--color-text-secondary)',
-    fontWeight: '500',
-  },
-  overviewBox: {
-    padding: '18px 20px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    marginBottom: '24px',
-  },
-  summaryText: {
-    fontSize: '14px',
-    lineHeight: 1.6,
-    color: 'var(--color-text)',
-  },
-  previewCard: {
-    padding: '28px 20px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    marginBottom: '24px',
-    textAlign: 'center',
-  },
-  previewIllustration: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '24px',
-  },
-  previewLabel: {
-    fontSize: '13px',
-    color: 'var(--color-text-secondary)',
-    fontWeight: '600',
-  },
-  actionButtons: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  primaryActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    background: 'var(--color-accent-gradient)',
-    color: '#ffffff',
-    fontSize: '15px',
-    fontWeight: '700',
-    boxShadow: '0 4px 15px rgba(0, 102, 204, 0.35)',
-  },
-  secondaryActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '15px',
-    fontWeight: '600',
-  },
-  bottomActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '12px',
-  },
-  demoActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
-  aiActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
 };

@@ -1,15 +1,18 @@
+import asyncio
 import logging
-import os
-from typing import List, Dict, Any, Optional
+from typing import Optional
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-from app.models.entities import Document, DocumentChunk, ChatSession, ChatMessage
-from app.rag.extractor import PDFExtractor
+
+from app.core.presentations import file_sha256
+from app.models.entities import ChatMessage, ChatSession, Document, DocumentChunk
 from app.rag.embeddings import embedding_service
-from app.rag.retrieval import retrieval_service, RetrievedChunk
+from app.rag.errors import RagError
+from app.rag.extractor import PDFExtractor
 from app.rag.generation import generation_service
+from app.rag.retrieval import retrieval_service
 from app.schemas.schemas import ChatResponse, ChatSource
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,109 +24,84 @@ class RagService:
         file_path: str,
         document_name: str,
         product: Optional[str] = None,
-        source_type: str = "pdf",
+        source_sha256: Optional[str] = None,
     ) -> Document:
         """
-        Ingest a PDF presentation: extract slides, generate embeddings, and store in pgvector.
-        """
-        logger.info(f"Starting ingestion for '{document_name}' from {file_path}")
-        pages = PDFExtractor.extract_pages(file_path)
-        logger.info(f"Extracted {len(pages)} pages from {file_path}")
+        Ingest a PDF presentation: extract slides, embed them, store in pgvector.
 
-        # Check if document already exists; if so, delete old chunks to re-ingest
+        The SHA256 of the exact file that was read is recorded on the document
+        row. Without it there is no way to tell, later, whether the corpus was
+        built from the approved deck or from something that replaced it.
+        """
+        from pathlib import Path
+
+        logger.info("Starting ingestion for '%s'", document_name)
+        extraction = PDFExtractor.extract(file_path)
+        pages = extraction.pages
+        logger.info(
+            "Extracted %s/%s page(s) from '%s' (%s via OCR, %s with no extractable text)",
+            len(pages), extraction.total_pages, document_name,
+            len(extraction.ocr_page_numbers), len(extraction.empty_page_numbers),
+        )
+
+        if not pages:
+            # Unreadable pages are skipped rather than substituted, so an
+            # image-only deck yields nothing. Fail loudly rather than register a
+            # document the assistant can never answer from.
+            raise RuntimeError(
+                f"No extractable text found in '{document_name}' ({file_path}). "
+                "The PDF is likely image-only — install OCR support (pytesseract, "
+                "Pillow, tesseract) or supply a text-bearing PDF."
+            )
+
+        digest = source_sha256 or file_sha256(Path(file_path))
+
         existing_doc_res = await db.execute(
             select(Document).where(Document.name == document_name)
         )
-        existing_doc = existing_doc_res.scalar_one_or_none()
+        doc = existing_doc_res.scalar_one_or_none()
 
-        if existing_doc:
-            doc = existing_doc
+        if doc is not None:
             doc.source_path = file_path
             doc.product = product
-            doc.source_type = source_type
-            # Clear previous chunks
             await db.execute(
                 delete(DocumentChunk).where(DocumentChunk.document_id == doc.id)
             )
         else:
-            doc = Document(
-                name=document_name,
-                source_path=file_path,
-                product=product,
-                source_type=source_type,
-            )
+            doc = Document(name=document_name, source_path=file_path, product=product)
             db.add(doc)
-            await db.flush()
+
+        doc.source_sha256 = digest
+        doc.source_page_count = extraction.total_pages
+        doc.pages_with_text = len(pages)
+        doc.pages_via_ocr = len(extraction.ocr_page_numbers)
+        doc.pages_without_text = len(extraction.empty_page_numbers)
+        await db.flush()
 
         chunks_to_add = []
         for page in pages:
-            page_chunks = PDFExtractor.chunk_page(page)
-            for ch in page_chunks:
+            for ch in PDFExtractor.chunk_page(page):
                 text = ch["content"]
-                emb = embedding_service.get_embedding(text)
-                chunk_obj = DocumentChunk(
-                    document_id=doc.id,
-                    page_number=ch["page_number"],
-                    chunk_index=ch["chunk_index"],
-                    content=text,
-                    embedding=emb,
+                emb = await asyncio.to_thread(
+                    embedding_service.get_document_embedding, text, doc.name
                 )
-                chunks_to_add.append(chunk_obj)
+                chunks_to_add.append(
+                    DocumentChunk(
+                        document_id=doc.id,
+                        page_number=ch["page_number"],
+                        chunk_index=ch["chunk_index"],
+                        content=text,
+                        embedding=emb,
+                    )
+                )
 
         db.add_all(chunks_to_add)
         await db.commit()
         await db.refresh(doc)
-        logger.info(f"Successfully ingested '{document_name}' with {len(chunks_to_add)} chunks.")
-        return doc
-
-    @staticmethod
-    async def ingest_synthetic_text(
-        db: AsyncSession,
-        document_name: str,
-        product: str,
-        pages_content: List[str],
-    ) -> Document:
-        """
-        Ingest synthetic/approved test text when PDF files are not yet available locally.
-        """
-        existing_doc_res = await db.execute(
-            select(Document).where(Document.name == document_name)
+        logger.info(
+            "Ingested '%s': %s chunk(s), source sha256 %s",
+            document_name, len(chunks_to_add), digest,
         )
-        existing_doc = existing_doc_res.scalar_one_or_none()
-
-        if existing_doc:
-            doc = existing_doc
-            doc.product = product
-            doc.source_type = "synthetic_text"
-            await db.execute(
-                delete(DocumentChunk).where(DocumentChunk.document_id == doc.id)
-            )
-        else:
-            doc = Document(
-                name=document_name,
-                source_path="synthetic://in-memory",
-                product=product,
-                source_type="synthetic_text",
-            )
-            db.add(doc)
-            await db.flush()
-
-        chunks_to_add = []
-        for idx, text in enumerate(pages_content):
-            emb = embedding_service.get_embedding(text)
-            chunk_obj = DocumentChunk(
-                document_id=doc.id,
-                page_number=idx + 1,
-                chunk_index=0,
-                content=text,
-                embedding=emb,
-            )
-            chunks_to_add.append(chunk_obj)
-
-        db.add_all(chunks_to_add)
-        await db.commit()
-        await db.refresh(doc)
-        logger.info(f"Successfully ingested synthetic doc '{document_name}' with {len(chunks_to_add)} chunks.")
         return doc
 
     @staticmethod
@@ -134,48 +112,34 @@ class RagService:
     ) -> ChatResponse:
         """
         Full RAG conversational pipeline with chat session persistence.
+
+        Retrieval and generation failures propagate as RagError. Nothing is
+        written to the transcript unless a real answer was produced: recording
+        an outage as an assistant message would make the failure indistinguishable
+        from a reply in every downstream count.
         """
-        # 1. Ensure chat session exists
+        # 1. Retrieve first. If the pipeline cannot run, nothing is persisted.
+        retrieved_chunks = await retrieval_service.retrieve(db=db, query=question, top_k=4)
+
+        # 2. Generate. Raises rather than returning a stand-in sentence.
+        answer = await asyncio.to_thread(
+            generation_service.generate_response,
+            question,
+            retrieved_chunks,
+        )
+
+        # 3. Only now is there an exchange worth storing.
         session_res = await db.execute(
             select(ChatSession).where(ChatSession.session_id == session_id)
         )
-        chat_sess = session_res.scalar_one_or_none()
-        if not chat_sess:
-            chat_sess = ChatSession(session_id=session_id)
-            db.add(chat_sess)
+        if session_res.scalar_one_or_none() is None:
+            db.add(ChatSession(session_id=session_id))
             await db.flush()
 
-        # 2. Record User Message
-        user_msg = ChatMessage(
-            session_id=session_id,
-            role="user",
-            content=question,
-        )
-        db.add(user_msg)
-
-        # 3. Retrieve relevant chunks via pgvector
-        retrieved_chunks = await retrieval_service.retrieve(
-            db=db,
-            query=question,
-            top_k=4,
-        )
-
-        # 4. Generate grounded answer
-        answer = generation_service.generate_response(
-            query=question,
-            retrieved_chunks=retrieved_chunks,
-        )
-
-        # 5. Record Assistant Message
-        assistant_msg = ChatMessage(
-            session_id=session_id,
-            role="assistant",
-            content=answer,
-        )
-        db.add(assistant_msg)
+        db.add(ChatMessage(session_id=session_id, role="user", content=question))
+        db.add(ChatMessage(session_id=session_id, role="assistant", content=answer))
         await db.commit()
 
-        # 6. Build response with source metadata
         sources = [
             ChatSource(
                 document=c.document_name,
@@ -186,11 +150,9 @@ class RagService:
             for c in retrieved_chunks
         ]
 
-        return ChatResponse(
-            answer=answer,
-            sources=sources,
-            session_id=session_id,
-        )
+        return ChatResponse(answer=answer, sources=sources, session_id=session_id)
 
 
 rag_service = RagService()
+
+__all__ = ["RagService", "rag_service", "RagError"]

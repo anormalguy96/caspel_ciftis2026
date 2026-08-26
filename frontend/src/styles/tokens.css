@@ -1,51 +1,96 @@
+/* ============================================================
+   DESIGN TOKENS — CASPEL / CIFTIS 2026
+
+   A restrained enterprise palette: a light neutral canvas, CASPEL
+   dark ink for structure, CASPEL green used sparingly for action.
+   There are no gradients, no glow colours and no accent surfaces —
+   decoration of that kind reads as a template, and this page sits
+   next to CASPEL's own printed materials at the stand.
+   ============================================================ */
+
+/* Self-hosted Inter Variable Font — GFW/offline safe, zero CDN dependency */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  /* Color Palette - Premium Corporate Exhibition Dark Theme */
-  --color-bg: #070c18;
-  --color-surface: #0e172a;
-  --color-surface-elevated: #15223c;
-  --color-surface-card: #0f1c34;
-  --color-surface-card-hover: #172a4e;
-  --color-border: #1e3152;
-  --color-border-glow: rgba(0, 163, 255, 0.35);
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #eef1f4;
+  --color-surface-card-hover: #fafbfc;
 
-  /* Primary & Accent Colors */
-  --color-primary: #0066cc;
-  --color-primary-hover: #0052a3;
-  --color-primary-light: rgba(0, 102, 204, 0.15);
-  --color-accent: #00c2ff;
-  --color-accent-gradient: linear-gradient(135deg, #0066cc 0%, #00c2ff 100%);
-  --color-gold: #f59e0b;
+  /* ── Borders ──────────────────────────────────────────── */
+  --color-border: #dfe4ea;
+  --color-border-hover: #c3ccd6;
+  --color-border-strong: #b4bfcb;
 
-  /* Typography & Neutral Colors */
-  --color-text: #ffffff;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-success: #10b981;
-  --color-error: #ef4444;
+  /* ── Brand ────────────────────────────────────────────── */
+  --color-dark: #063044;
+  --color-dark-soft: #0d4560;
+  --color-primary: #51b748;
+  /* Darkened for hover and for text on white: #51B748 on white is 2.2:1,
+     which fails AA. Green is used as a surface or an accent bar, never as
+     body-sized text on a light background. */
+  --color-primary-hover: #3f9a37;
+  --color-primary-ink: #2f7a2a;
+  --color-primary-light: rgba(81, 183, 72, 0.12);
 
-  /* Spacing */
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-text: #0e2230;      /* 14.9:1 on --color-bg */
+  --color-text-secondary: #4a5a68; /*  7.2:1 on --color-bg */
+  /* 5.07:1 on the canvas, 5.43:1 on white, 4.79:1 on the elevated surface.
+     #66768a measured 4.33:1 behind the 12px section labels and failed AA. */
+  --color-text-muted: #5d6b7d;
+  --color-success: #2f7a2a;
+  --color-error: #b42318;
+  --color-error-bg: #fef3f2;
+  --color-error-border: #fda29b;
+
+  /* ── Spacing ──────────────────────────────────────────── */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
+  --space-3xl: 72px;
 
-  /* Radii */
+  /* ── Radii — 3-step system ────────────────────────────── */
   --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   --radius-full: 9999px;
 
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* ── Elevation — flat by default; depth marks what floats ── */
+  --shadow-xs: 0 1px 2px rgba(6, 48, 68, 0.05);
+  --shadow-card: 0 1px 2px rgba(6, 48, 68, 0.05);
+  --shadow-card-hover: 0 4px 14px rgba(6, 48, 68, 0.09);
+  --shadow-modal: 0 18px 44px rgba(6, 48, 68, 0.18);
 
-  /* Shadows */
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-card-hover: 0 8px 30px rgba(0, 102, 204, 0.25), 0 0 15px rgba(0, 194, 255, 0.2);
-  --shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--color-border);
+  /* ── Layout ───────────────────────────────────────────── */
+  --layout-max: 1180px;
+  /* Body copy is capped independently of the shell so a 1440px screen gets a
+     wide layout without a 140-character line. */
+  --measure: 68ch;
 
-  /* System Font Fallback - 100% Offline & China Firewall safe */
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* ── Typography ───────────────────────────────────────── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-feature: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* ── Dark surfaces ───────────────────────────────────────────
+   The booth kiosk and the closing panel run dark. Tokens rather than
+   hardcoded hex so the dark screens stay in step with the brand. */
+:root {
+  --color-dark-bg: #04222f;
+  --color-dark-surface: #0a3244;
+  --color-dark-border: rgba(255, 255, 255, 0.16);
+  --color-dark-text: #ffffff;
+  --color-dark-text-secondary: rgba(255, 255, 255, 0.76);
+  --color-dark-text-muted: rgba(255, 255, 255, 0.56);
 }

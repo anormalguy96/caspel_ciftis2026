@@ -1,167 +1,132 @@
-import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, FileText } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { ArrowLeft, Download, AlertTriangle, RotateCw } from 'lucide-react';
 import { Header } from '../components/Header';
-import { PRODUCTS } from '../config/products';
-import { ProductSlug } from '../types';
+import { PdfViewer } from '../components/PdfViewer';
+import { PRODUCTS, isProductSlug } from '../config/products';
+import { usePresentationManifest } from '../hooks/usePresentationManifest';
 import { trackAnalyticsEvent } from '../services/analytics';
+import { downloadPresentation } from '../services/presentations';
+import en from '../locales/en.json';
 
 export const PresentationPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { getEntry, status, retry } = usePresentationManifest();
+  const [pageCount, setPageCount] = useState<number | null>(null);
 
-  const productKey = (slug || 'caspel') as ProductSlug;
-  const product = PRODUCTS[productKey] || PRODUCTS.caspel;
+  // Every hook runs unconditionally; the 404 redirect happens after them.
+  const validSlug = isProductSlug(slug) ? slug : null;
+  const product = validSlug ? PRODUCTS[validSlug] : null;
+  const isAvailable = validSlug ? getEntry(validSlug)?.available ?? false : false;
 
   useEffect(() => {
-    trackAnalyticsEvent('PRESENTATION_VIEW', product.slug);
-  }, [product.slug]);
+    if (validSlug && isAvailable) trackAnalyticsEvent('PRESENTATION_VIEW', validSlug);
+  }, [validSlug, isAvailable]);
 
-  const handleDownload = () => {
-    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', product.slug);
-    const link = document.createElement('a');
-    link.href = product.presentationUrl;
-    link.download = product.downloadFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleDownload = useCallback(() => {
+    if (!validSlug || !product || !isAvailable) return;
+    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', validSlug);
+    downloadPresentation(validSlug, product.downloadFilename);
+  }, [validSlug, product, isAvailable]);
+
+  // An unrecognised slug is a real 404, not a silent redirect to Corporate.
+  if (!validSlug || !product) {
+    return <Navigate to="/ciftis/not-found" replace />;
+  }
 
   return (
-    <div style={styles.pageWrapper}>
+    <div className="page page--viewer">
       <Header />
 
-      <div style={styles.topControlBar}>
-        <div className="container" style={styles.controlBarInner}>
+      <div className="viewer-bar">
+        <div className="container viewer-bar__inner">
           <button
+            type="button"
+            className="btn btn--ghost viewer-bar__back"
             onClick={() => navigate(`/ciftis/product/${product.slug}`)}
-            style={styles.backBtn}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={18} aria-hidden="true" />
             <span>{product.name}</span>
           </button>
 
-          <button onClick={handleDownload} style={styles.downloadBtn}>
-            <Download size={16} />
+          <button
+            type="button"
+            className="btn btn--primary viewer-bar__download"
+            onClick={handleDownload}
+            disabled={!isAvailable}
+          >
+            <Download size={16} aria-hidden="true" />
             <span>Download</span>
           </button>
         </div>
       </div>
 
-      <main className="container" style={styles.viewerContainer}>
-        <div style={styles.viewerCard}>
-          <div style={styles.viewerHeader}>
-            <div style={styles.docInfo}>
-              <FileText size={18} color="var(--color-accent)" />
-              <span style={styles.docTitle}>{product.downloadFilename}</span>
-            </div>
-            <span style={styles.viewerBadge}>PDF Viewer</span>
+      <main className="container viewer-main">
+        {status === 'loading' && (
+          <div className="viewer-status">
+            <div className="u-skeleton viewer-status__block" />
           </div>
+        )}
 
-          <div style={styles.pdfFrameContainer}>
-            <iframe
-              src={`${product.presentationUrl}#toolbar=0&navpanes=0`}
-              title={product.name}
-              style={styles.pdfIframe}
-            />
+        {/* A manifest that could not be fetched is a temporary server problem.
+            Presenting it as "not yet published" would tell a visitor CASPEL has
+            no such deck, which is a different and untrue statement. */}
+        {status === 'error' && (
+          <div className="viewer-status viewer-status--empty" role="alert">
+            <span className="viewer-status__icon" aria-hidden="true">
+              <AlertTriangle size={26} />
+            </span>
+            <h1 className="viewer-status__title">{en.presentation.errorTitle}</h1>
+            <p className="viewer-status__text">{en.presentation.errorText}</p>
+            <div className="viewer-status__actions">
+              <button type="button" className="btn btn--primary" onClick={retry}>
+                <RotateCw size={16} aria-hidden="true" />
+                <span>{en.actions.retry}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => navigate(`/ciftis/product/${product.slug}`)}
+              >
+                Back to {product.name}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {status === 'ready' && !isAvailable && (
+          <div className="viewer-status viewer-status--empty">
+            <h1 className="viewer-status__title">{product.name}</h1>
+            <p className="viewer-status__text">{en.presentation.unavailableText}</p>
+            <div className="viewer-status__actions">
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => navigate(`/ciftis/product/${product.slug}`)}
+              >
+                Back to {product.name}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isAvailable && (
+          <>
+            <div className="viewer-meta">
+              <span className="viewer-meta__file">{product.downloadFilename}</span>
+              {pageCount !== null && (
+                <span className="viewer-meta__pages">{pageCount} pages</span>
+              )}
+            </div>
+            <PdfViewer
+              url={product.presentationUrl}
+              onDownload={handleDownload}
+              onPageCountChange={setPageCount}
+            />
+          </>
+        )}
       </main>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  pageWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: 'var(--color-bg)',
-  },
-  topControlBar: {
-    padding: '12px 0',
-    backgroundColor: 'var(--color-surface)',
-    borderBottom: '1px solid var(--color-border)',
-  },
-  controlBarInner: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    color: 'var(--color-text)',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  downloadBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 14px',
-    borderRadius: 'var(--radius-sm)',
-    background: 'var(--color-accent-gradient)',
-    color: '#ffffff',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  viewerContainer: {
-    flex: 1,
-    padding: '20px 16px 40px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  viewerCard: {
-    flex: 1,
-    minHeight: '550px',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-md)',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  },
-  viewerHeader: {
-    padding: '12px 16px',
-    backgroundColor: 'var(--color-surface-elevated)',
-    borderBottom: '1px solid var(--color-border)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  docInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  docTitle: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: 'var(--color-text)',
-  },
-  viewerBadge: {
-    fontSize: '11px',
-    padding: '3px 8px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'rgba(0, 194, 255, 0.15)',
-    color: 'var(--color-accent)',
-    fontWeight: '600',
-  },
-  pdfFrameContainer: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    minHeight: '500px',
-  },
-  pdfIframe: {
-    width: '100%',
-    height: '100%',
-    minHeight: '500px',
-    border: 'none',
-  },
 };

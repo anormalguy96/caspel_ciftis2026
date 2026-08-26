@@ -1,0 +1,440 @@
+/* ============================================================
+   MODAL LAYER — CASPEL / CIFTIS 2026
+
+   Bottom sheets on phones (thumb-reachable), centred dialogs from
+   tablet up. Entrance and exit come from motion.css via .u-backdrop
+   and .u-panel, so timing stays consistent with the rest of the app.
+   ============================================================ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgba(6, 48, 68, 0.45);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  /* dvh follows the iOS keyboard and collapsing toolbar; vh does not. */
+  max-height: 92dvh;
+  padding: var(--space-lg);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-modal);
+  overflow-y: auto;
+  /* Clear the iPhone home indicator. */
+  padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
+}
+
+.modal--chat {
+  height: 92dvh;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal__title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.modal__subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    color            var(--dur-micro) var(--ease-both);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal__close:hover {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+  }
+}
+
+.modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.field__select {
+  appearance: none;
+  padding-right: var(--space-xl);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 21px, calc(100% - 15px) 21px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* Positioned off-screen rather than display:none — bots fill what they parse. */
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.modal__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 0 var(--space-sm);
+  text-align: center;
+}
+
+.modal__success-icon {
+  margin-bottom: var(--space-xs);
+  color: var(--color-success);
+}
+
+.modal__success-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.modal__success-text {
+  max-width: 40ch;
+  margin-bottom: var(--space-md);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* ── Chat ────────────────────────────────────────────────── */
+
+.chat__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.chat__brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-ink);
+}
+
+.chat__log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-right: var(--space-xs);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  max-width: 100%;
+}
+
+.chat__row--user {
+  flex-direction: row-reverse;
+}
+
+.chat__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.chat__avatar--assistant {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-ink);
+}
+
+.chat__avatar--user {
+  background-color: var(--color-dark);
+  color: #ffffff;
+}
+
+.chat__bubble {
+  max-width: 78%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-elevated);
+}
+
+.chat__bubble--user {
+  /* CASPEL green behind white text is 2.2:1 and fails AA, so the visitor's
+     own message sits on brand ink instead. */
+  background-color: var(--color-dark);
+  border-color: var(--color-dark);
+}
+
+.chat__bubble--loading {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.chat__text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat__bubble--user .chat__text {
+  color: #ffffff;
+}
+
+.chat__sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.chat__sources-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-primary-ink);
+}
+
+.chat__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.chat__chip {
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.chat__suggested {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.chat__suggested-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.chat__suggested-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.chat__suggestion {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color     var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chat__suggestion:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text);
+  }
+}
+
+.chat__composer {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.chat__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-dark);
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+.chat__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat__send:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chat__send:not(:disabled):hover {
+    background-color: var(--color-dark-soft);
+  }
+}
+
+/* ── Centred dialogs from tablet up ──────────────────────── */
+
+@media (min-width: 640px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: var(--space-lg);
+  }
+
+  .modal {
+    border-radius: var(--radius-lg);
+    padding-bottom: var(--space-lg);
+  }
+
+  .modal--chat {
+    height: min(680px, 88dvh);
+    padding-bottom: 0;
+  }
+}
+
+/* ── Chat failure ────────────────────────────────────────────
+   A provider outage is shown as an out-of-band notice with a Retry,
+   never as an assistant bubble. Styling it like a message would put
+   an outage into the transcript as though CASPEL AI had answered. */
+
+.chat__failure {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-error-bg);
+}
+
+.chat__failure-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  margin-top: 2px;
+  color: var(--color-error);
+}
+
+.chat__failure-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.chat__failure-text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.chat__failure-retry {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: 14px;
+}
+
+/* ── Suggested questions ─────────────────────────────────── */
+
+.chat__suggestion {
+  min-height: 44px;
+}

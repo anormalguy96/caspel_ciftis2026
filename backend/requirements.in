@@ -1,0 +1,30 @@
+# Direct dependencies, with the ranges a human reviews.
+#
+# requirements.txt holds the exact resolved set actually used and verified.
+# Regenerate it deliberately, review the diff, and re-run the test suite:
+#
+#   python -m venv /tmp/caspel-resolve
+#   /tmp/caspel-resolve/bin/pip install -r requirements.in
+#   /tmp/caspel-resolve/bin/pip freeze | sort > requirements.txt
+#
+# The image installs requirements.txt, never requirements.in, so an image
+# rebuilt six months from now gets the same packages it was tested against
+# instead of whatever is newest that day.
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+email-validator>=2.0.0
+sqlalchemy>=2.0.35
+asyncpg>=0.30.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.3
+pgvector>=0.3.5
+numpy>=1.26.0
+google-genai>=2.0.0
+pymupdf>=1.24.10
+pypdf>=5.1.0
+pytesseract>=0.3.13
+Pillow>=10.4.0
+slowapi>=0.1.9

@@ -1,0 +1,38 @@
+########################################################################
+# CASPEL CIFTIS 2026 — systemd unit
+#
+# Brings the Compose stack up at boot and keeps it up. During the
+# exhibition the machine must recover on its own; nobody should have to
+# SSH in after an overnight reboot.
+#
+# Install:
+#   sudo cp deploy/caspel-ciftis.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now caspel-ciftis
+#
+# Adjust WorkingDirectory and User to match the deployment path.
+########################################################################
+
+[Unit]
+Description=CASPEL CIFTIS 2026 Digital Hub
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+WorkingDirectory=/opt/caspel-ciftis
+EnvironmentFile=/opt/caspel-ciftis/.env
+
+# Pull is intentionally absent: images are built from the checked-out source
+# by deploy.sh, so a restart must not silently change what is running.
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose restart
+
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
