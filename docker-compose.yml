@@ -70,10 +70,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Required. The production build fails rather than baking a localhost
-        # canonical URL into shared links and the printed QR code.
-        VITE_PUBLIC_SITE_URL: ${VITE_PUBLIC_SITE_URL:?VITE_PUBLIC_SITE_URL is required}
-        VITE_PUBLIC_CIFTIS_URL: ${VITE_PUBLIC_CIFTIS_URL:-}
+        # Deployment mode. "/" for a dedicated subdomain, "/ciftis/" when the
+        # hub is served beneath the corporate site. Both are baked in at build
+        # time; the build fails on a mismatched or unsafe value.
+        VITE_APP_BASE_PATH: ${VITE_APP_BASE_PATH:-/}
+        VITE_PUBLIC_URL: ${VITE_PUBLIC_URL:?VITE_PUBLIC_URL is required}
         VITE_DISPLAY_RESET_SECONDS: ${VITE_DISPLAY_RESET_SECONDS:-25}
     container_name: caspel_nginx
     restart: unless-stopped

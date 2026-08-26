@@ -20,7 +20,7 @@ export const NotFoundPage: React.FC = () => (
       <p className="not-found__text">
         The link may be out of date. Everything CASPEL is showing at CIFTIS 2026 is one tap away.
       </p>
-      <Link to="/ciftis" className="btn btn--primary">
+      <Link to="/" className="btn btn--primary">
         Back to CASPEL solutions
       </Link>
     </main>

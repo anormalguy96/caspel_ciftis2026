@@ -8,9 +8,11 @@ A production-shaped, Linux-first, self-hosted enterprise platform designed for C
 
 The system consists of three major tiers:
 
-1. **Page A — Exhibition Display / Kiosk (`/ciftis/display`)**: A still, legible booth screen that reveals a locally generated QR code on tap and returns to rest by itself. Deliberately not animated — a looping screen nobody is touching is noise on the stand.
-2. **Page B — Mobile Landing Page (`/ciftis`)**: Mobile-first digital presentation hub with 4 core product cards (*Caspel Corporate*, *Caspel ERP*, *Caspel PMS*, *IRISSEA*), in-browser PDF viewing, PDF downloads, and lead capture.
-3. **CASPEL AI (`/api/chat`)**: RAG assistant over PostgreSQL `pgvector` retrieval and Google Gemini, grounded strictly in the approved decks and citing the slide it answered from. A provider failure returns HTTP 503 — never an apology wrapped in a 200.
+1. **Page A — Exhibition Display / Kiosk (`{base}display`)**: A still, legible booth screen that reveals a locally generated QR code on tap and returns to rest by itself. Deliberately not animated — a looping screen nobody is touching is noise on the stand.
+2. **Page B — Mobile Landing Page (`{base}`)**: Mobile-first digital presentation hub with 4 core product cards (*Caspel Corporate*, *Caspel ERP*, *Caspel PMS*, *IRISSEA*), in-browser PDF viewing, PDF downloads, and lead capture.
+3. **CASPEL AI (`{base}api/chat`)**: RAG assistant over PostgreSQL `pgvector` retrieval and Google Gemini, grounded strictly in the approved decks and citing the slide it answered from. A provider failure returns HTTP 503 — never an apology wrapped in a 200.
+
+Routes are relative to the configured base path (see *Deployment modes*): `{base}` is `/` on a dedicated subdomain and `/ciftis/` beneath the corporate site.
 
 There are deliberately **no admin and no status pages**. This site is reachable by QR code from a public exhibition hall, so it carries no login form and no operational telemetry screen. Leads are read from the database; readiness is read from `/api/ready`.
 
@@ -65,8 +67,8 @@ Key environment variables:
 | `GEMINI_EMBEDDING_MODEL` | Embedding model | `gemini-embedding-2` |
 | `ALLOW_MOCK_RAG` | Local development only. `/api/ready` refuses to report ready while true | `false` |
 | `TRUSTED_PROXY_COUNT` | Proxies in front of the app; the rate limiter reads that entry of `X-Forwarded-For`, so a client cannot forge its own identity | `1` |
-| `VITE_PUBLIC_SITE_URL` | **Required.** The real public origin, baked in at build time for canonical and Open Graph tags. The production build **fails** on a missing, loopback or non-https value | *(none)* |
-| `VITE_PUBLIC_CIFTIS_URL` | Target URL encoded in the kiosk QR code | *(site URL)* + `/ciftis` |
+| `VITE_APP_BASE_PATH` | Where the SPA is mounted: `/` for a dedicated subdomain, `/ciftis/` beneath the corporate site | `/` |
+| `VITE_PUBLIC_URL` | **Required.** The absolute public address, baked in at build time for canonical, Open Graph and the QR code. The build **fails** if it is missing, loopback, non-https, or disagrees with `VITE_APP_BASE_PATH` | *(none)* |
 | `VITE_DISPLAY_RESET_SECONDS`| Kiosk inactivity reset timeout (seconds)| `25` |
 
 ---
@@ -216,10 +218,24 @@ curl -i \
 
 ---
 
+## Deployment modes
+
+The hub supports two public addresses, selected at build time — no source edit:
+
+| Mode | Public URL | `VITE_APP_BASE_PATH` | `VITE_PUBLIC_URL` | Reverse proxy |
+| :--- | :--- | :--- | :--- | :--- |
+| A — subdomain | `https://ciftis.caspel.com/` | `/` | `https://ciftis.caspel.com` | [`deploy/nginx/caspel-ciftis.conf`](deploy/nginx/caspel-ciftis.conf) — own vhost |
+| B — corporate path | `https://caspel.com/ciftis/` | `/ciftis/` | `https://caspel.com/ciftis` | [`deploy/nginx/caspel-com-ciftis-snippet.conf`](deploy/nginx/caspel-com-ciftis-snippet.conf) — merged into the existing vhost |
+
+Only one mode is served per deployment. Mode A needs DNS and a certificate for
+`ciftis.caspel.com`; Mode B reuses the existing `caspel.com` DNS and certificate
+but needs access to the corporate reverse proxy. **Choose before building** —
+the values are inlined into the bundle and the QR code cannot be recalled.
+
 ## Local Access URLs
 
-- **Page B — Mobile Presentation Hub**: [http://localhost:8080/ciftis](http://localhost:8080/ciftis)
-- **Page A — Exhibition Display / Kiosk**: [http://localhost:8080/ciftis/display](http://localhost:8080/ciftis/display)
+- **Page B — Mobile Presentation Hub**: http://localhost:8080/
+- **Page A — Exhibition Display / Kiosk**: http://localhost:8080/display
 - **API docs (Swagger)**: `http://localhost:8080/docs` — served only when `APP_ENV` is not `production`.
 
 Full deployment procedure: [deploy/RUNBOOK.md](deploy/RUNBOOK.md).

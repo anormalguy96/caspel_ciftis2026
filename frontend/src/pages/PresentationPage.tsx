@@ -32,7 +32,7 @@ export const PresentationPage: React.FC = () => {
 
   // An unrecognised slug is a real 404, not a silent redirect to Corporate.
   if (!validSlug || !product) {
-    return <Navigate to="/ciftis/not-found" replace />;
+    return <Navigate to="/not-found" replace />;
   }
 
   return (
@@ -44,7 +44,7 @@ export const PresentationPage: React.FC = () => {
           <button
             type="button"
             className="btn btn--ghost viewer-bar__back"
-            onClick={() => navigate(`/ciftis/product/${product.slug}`)}
+            onClick={() => navigate(`/product/${product.slug}`)}
           >
             <ArrowLeft size={18} aria-hidden="true" />
             <span>{product.name}</span>
@@ -87,7 +87,7 @@ export const PresentationPage: React.FC = () => {
               <button
                 type="button"
                 className="btn btn--secondary"
-                onClick={() => navigate(`/ciftis/product/${product.slug}`)}
+                onClick={() => navigate(`/product/${product.slug}`)}
               >
                 Back to {product.name}
               </button>
@@ -103,7 +103,7 @@ export const PresentationPage: React.FC = () => {
               <button
                 type="button"
                 className="btn btn--secondary"
-                onClick={() => navigate(`/ciftis/product/${product.slug}`)}
+                onClick={() => navigate(`/product/${product.slug}`)}
               >
                 Back to {product.name}
               </button>

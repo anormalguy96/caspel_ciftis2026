@@ -5,6 +5,7 @@ import { trackAnalyticsEvent } from '../services/analytics';
 import en from '../locales/en.json';
 import { useModalA11y } from '../hooks/useModalA11y';
 import caspelLogo from '../assets/caspel-logo-horizontal.svg';
+import { PUBLIC_URL } from '../config/paths';
 
 /**
  * Booth display.
@@ -16,8 +17,10 @@ import caspelLogo from '../assets/caspel-logo-horizontal.svg';
 
 const RESET_TIMEOUT_SECONDS = parseInt(import.meta.env.VITE_DISPLAY_RESET_SECONDS || '25', 10);
 
-const PUBLIC_CIFTIS_URL =
-  import.meta.env.VITE_PUBLIC_CIFTIS_URL || `${window.location.origin}/ciftis`;
+// The QR target is the build's own public address. Never derived from
+// window.location: a bundle that guessed its own URL would print a different
+// code depending on how the operator happened to open the kiosk page.
+const PUBLIC_CIFTIS_URL = PUBLIC_URL;
 
 export const DisplayPage: React.FC = () => {
   const [isQrRevealed, setIsQrRevealed] = useState(false);

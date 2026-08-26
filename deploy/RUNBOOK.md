@@ -89,7 +89,8 @@ Required, no defaults — the stack refuses to start without them:
 |---|---|
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Use a generated password |
 | `GEMINI_API_KEY` | Required in production. Only the server talks to Google, which is what keeps the page working from China |
-| `VITE_PUBLIC_SITE_URL` | The real public origin, e.g. `https://caspel.com`. **Baked in at build time** for canonical, Open Graph and the QR target. The build FAILS on a missing, loopback or non-https value — there is no runtime fix once the QR code is printed |
+| `VITE_APP_BASE_PATH` | `/` for the subdomain deployment, `/ciftis/` for the corporate-path deployment |
+| `VITE_PUBLIC_URL` | The absolute public address, e.g. `https://ciftis.caspel.com` or `https://caspel.com/ciftis`. **Baked in at build time**. The build FAILS if it is missing, loopback, non-https, or disagrees with `VITE_APP_BASE_PATH` — there is no runtime fix once the QR code is printed |
 
 Also set:
 
@@ -99,11 +100,55 @@ Also set:
 | `ALLOW_MOCK_RAG=false` | Must stay false. `/api/ready` refuses to report ready while it is on |
 | `TRUSTED_PROXY_COUNT=1` | Number of proxies in front of the app; the rate limiter reads that entry of `X-Forwarded-For` so a client cannot forge its own identity |
 | `GEMINI_API_KEY` | Without it CASPEL AI reports itself unavailable; the rest of the hub works |
-| `VITE_PUBLIC_CIFTIS_URL` | The QR target, e.g. `https://ciftis.caspel.com/ciftis` |
+| *(QR target)* | Derived from `VITE_PUBLIC_URL`; there is no separate variable |
 
 ```bash
 chmod 600 .env
 ```
+
+## 3a. Choose the deployment mode
+
+Two public addresses are supported. Pick one **before building** — both values
+are inlined into the bundle and the printed QR code cannot be recalled.
+
+### Mode A — dedicated subdomain `https://ciftis.caspel.com/`
+
+```bash
+# .env
+VITE_APP_BASE_PATH=/
+VITE_PUBLIC_URL=https://ciftis.caspel.com
+
+docker compose build nginx && docker compose up -d nginx
+sudo cp deploy/nginx/caspel-ciftis.conf /etc/nginx/sites-available/
+sudo ln -s /etc/nginx/sites-available/caspel-ciftis.conf /etc/nginx/sites-enabled/
+sudo certbot --nginx -d ciftis.caspel.com
+```
+
+Requires a new DNS record for `ciftis.caspel.com` and a certificate covering it.
+The corporate website is untouched.
+
+### Mode B — beneath the corporate site `https://caspel.com/ciftis/`
+
+```bash
+# .env
+VITE_APP_BASE_PATH=/ciftis/
+VITE_PUBLIC_URL=https://caspel.com/ciftis
+
+docker compose build nginx && docker compose up -d nginx
+```
+
+Then CASPEL infrastructure staff merge
+`deploy/nginx/caspel-com-ciftis-snippet.conf` into the **existing**
+`server_name caspel.com` block — for example by copying it to
+`/etc/nginx/snippets/caspel-com-ciftis.conf` and adding one `include` line
+inside that server block.
+
+Do **not** install it as a separate virtual host: a second
+`server_name caspel.com` would compete with the corporate site.
+
+Reuses the existing `caspel.com` DNS and certificate; no new certificate is
+needed. Requires access to the corporate reverse proxy configuration.
+
 
 ## 4. Deploy
 
@@ -213,7 +258,7 @@ docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   > leads-$(date +%F).csv
 ```
 
-**Booth display:** open `https://<hostname>/ciftis/display` full-screen on the
+**Booth display:** open `<public URL>/display` full-screen on the
 stand screen. It reveals the QR code on tap and resets itself after
 `VITE_DISPLAY_RESET_SECONDS` (default 25).
 
@@ -244,7 +289,9 @@ The database volume survives `docker compose down`. To destroy it deliberately,
 | Viewer blank on iPhone | Confirm `/assets/pdf.worker.min-*.js` returns 200. A CSP without `worker-src blob:` blocks it |
 | Range requests return 200 not 206 | `proxy_buffering off` is missing from the `/api/` block |
 | A deck shows "not yet published" although the file is there | Its SHA256, size or page count does not match the approved values. `docker compose logs backend` names the exact reason. Do not "fix" it by loosening the check |
-| Frontend build fails on `VITE_PUBLIC_SITE_URL` | Deliberate. Set the real https:// origin; a localhost build would ship a QR code pointing at the build machine |
+| Frontend build fails on `VITE_PUBLIC_URL` | Deliberate. Set the real https:// address; a localhost build would ship a QR code pointing at the build machine |
+| Build fails: public URL does not match base path | The two values describe the same mount point. Use `/` + `https://ciftis.caspel.com`, or `/ciftis/` + `https://caspel.com/ciftis` |
+| Assets 404 under `/ciftis/` | The image was built for the wrong mode. Rebuild with `VITE_APP_BASE_PATH=/ciftis/` |
 | Backend exits at startup | A required variable is missing or invalid. Inspect `docker compose logs backend` |
 | Migration fails with an existing unversioned schema | Do not stamp blindly. Confirm the tables match `001_initial_schema`, back up the database, then run `docker compose run --rm backend alembic stamp 001_initial_schema` once. |
 | AI replies "temporarily unavailable" | Missing/invalid `GEMINI_API_KEY`, no indexed documents, or the server cannot reach Google. Run `verify_gemini_integration.py` |

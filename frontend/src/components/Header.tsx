@@ -14,7 +14,7 @@ import caspelLogo from '../assets/caspel-logo-horizontal.svg';
 export const Header: React.FC = () => (
   <header className="site-header">
     <div className="container site-header__inner">
-      <Link to="/ciftis" className="site-header__brand" aria-label="CASPEL — CIFTIS 2026 Digital Hub">
+      <Link to="/" className="site-header__brand" aria-label="CASPEL — CIFTIS 2026 Digital Hub">
         <img src={caspelLogo} alt="CASPEL" className="site-header__logo" width={210} height={50} loading="eager" />
       </Link>
 

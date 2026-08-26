@@ -1,4 +1,5 @@
 import { ProductSlug } from '../types';
+import { apiUrl } from '../config/paths';
 
 /**
  * Server-reported state of one presentation.
@@ -21,7 +22,7 @@ export type PresentationManifest = Record<string, PresentationEntry>;
 export async function fetchPresentationManifest(
   signal?: AbortSignal
 ): Promise<PresentationManifest> {
-  const response = await fetch('/api/presentations', { signal });
+  const response = await fetch(apiUrl('presentations'), { signal });
   if (!response.ok) {
     throw new Error(`Manifest request failed with status ${response.status}`);
   }
@@ -29,11 +30,11 @@ export async function fetchPresentationManifest(
 }
 
 export function presentationStreamUrl(slug: ProductSlug): string {
-  return `/api/presentations/${slug}/stream`;
+  return apiUrl(`presentations/${slug}/stream`);
 }
 
 export function presentationDownloadUrl(slug: ProductSlug): string {
-  return `/api/presentations/${slug}/download`;
+  return apiUrl(`presentations/${slug}/download`);
 }
 
 /**

@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ROUTER_BASENAME } from './config/paths';
 import { LandingPage } from './pages/LandingPage';
 
 const ProductPage = lazy(() => import('./pages/ProductPage').then(m => ({ default: m.ProductPage })));
@@ -32,15 +33,14 @@ const RouteFallback: React.FC = () => (
  */
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/ciftis" replace />} />
-          <Route path="/ciftis" element={<LandingPage />} />
-          <Route path="/ciftis/display" element={<DisplayPage />} />
-          <Route path="/ciftis/product/:slug" element={<ProductPage />} />
-          <Route path="/ciftis/presentation/:slug" element={<PresentationPage />} />
-          <Route path="/ciftis/not-found" element={<NotFoundPage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/display" element={<DisplayPage />} />
+          <Route path="/product/:slug" element={<ProductPage />} />
+          <Route path="/presentation/:slug" element={<PresentationPage />} />
+          <Route path="/not-found" element={<NotFoundPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>

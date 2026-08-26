@@ -27,7 +27,7 @@ require_env() {
   local missing=()
   # Every one of these has no safe default; the stack must not start without them.
   for key in POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD \
-             GEMINI_API_KEY VITE_PUBLIC_SITE_URL; do
+             GEMINI_API_KEY VITE_PUBLIC_URL; do
     grep -qE "^${key}=.+" .env || missing+=("$key")
   done
 
@@ -38,13 +38,23 @@ require_env() {
   # A localhost site URL is baked into canonical tags, share cards and the
   # printed QR target, and cannot be changed after the code goes to print. The
   # frontend build refuses it too; catching it here saves a full image build.
-  local site_url
-  site_url=$(grep -E "^VITE_PUBLIC_SITE_URL=" .env | head -n1 | cut -d= -f2-)
+  local site_url base_path
+  site_url=$(grep -E "^VITE_PUBLIC_URL=" .env | head -n1 | cut -d= -f2-)
+  base_path=$(grep -E "^VITE_APP_BASE_PATH=" .env | head -n1 | cut -d= -f2-)
+  base_path="${base_path:-/}"
+
+  # The two values describe the same mount point. If they disagree every
+  # canonical link is wrong, so the build refuses; catch it before building.
+  case "$base_path" in
+    /) expected_path="" ;;
+    /*/) expected_path="${base_path%/}" ;;
+    *) fail "VITE_APP_BASE_PATH must be \"/\" or \"/segment/\", got: $base_path" ;;
+  esac
   case "$site_url" in
     *localhost*|*127.0.0.1*|*0.0.0.0*)
-      fail "VITE_PUBLIC_SITE_URL is a loopback address ($site_url). Shared links and the printed QR code would point at this machine." ;;
+      fail "VITE_PUBLIC_URL is a loopback address ($site_url). Shared links and the printed QR code would point at this machine." ;;
     https://*) ;;
-    *) fail "VITE_PUBLIC_SITE_URL must be an https:// origin, got: $site_url" ;;
+    *) fail "VITE_PUBLIC_URL must be an https:// address, got: $site_url" ;;
   esac
 
   if grep -qE "^APP_ENV=production" .env; then
@@ -56,7 +66,12 @@ require_env() {
       || fail "POSTGRES_PASSWORD is too short for production (16+ characters required)"
   fi
 
-  ok ".env has the required values"
+  case "$site_url" in
+    *"$expected_path") ;;
+    *) fail "VITE_PUBLIC_URL ($site_url) does not end at VITE_APP_BASE_PATH ($base_path)." ;;
+  esac
+
+  ok ".env has the required values (base path $base_path)"
 }
 
 preflight() {
@@ -162,7 +177,9 @@ verify() {
     || fail "the unverified /presentations/{filename} route returned ${gone_status}, expected 404"
   ok "removed surfaces stay removed"
 
-  curl -fsS "${BASE_URL}/ciftis" >/dev/null && ok "SPA is served"
+  # The container serves the SPA at its own root in both modes; the public
+  # prefix, if any, is added by the host proxy.
+  curl -fsS "${BASE_URL}/" >/dev/null && ok "SPA is served"
 }
 
 # ------------------------------------------------------------------ main

@@ -114,7 +114,9 @@ check_range "erp"
 
 # ---------------------------------------------------------------------------
 echo "=== 6. SPA ROUTES ==="
-for route in /ciftis /ciftis/display /ciftis/product/erp /ciftis/presentation/caspel; do
+# The container serves the SPA at its own root; any public prefix is added by
+# the host proxy, so these are the container-side paths.
+for route in / /display /product/erp /presentation/caspel; do
   CODE=$(curl -sS -m 15 -o /dev/null -w '%{http_code}' "${BASE_URL}${route}")
   if [[ "$CODE" == "200" ]]; then pass "$route -> 200"; else fail "$route -> $CODE"; fi
 done

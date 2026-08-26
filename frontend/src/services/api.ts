@@ -1,4 +1,5 @@
 import { LeadFormData, ChatSource } from '../types';
+import { apiUrl } from '../config/paths';
 
 export interface LeadApiResponse {
   success: boolean;
@@ -37,7 +38,7 @@ export class ChatRateLimitedError extends Error {
 }
 
 export async function submitLead(data: LeadFormData): Promise<LeadApiResponse> {
-  const response = await fetch('/api/leads', {
+  const response = await fetch(apiUrl('leads'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -64,7 +65,7 @@ export async function submitLead(data: LeadFormData): Promise<LeadApiResponse> {
 }
 
 export async function sendChatMessage(sessionId: string, message: string): Promise<ChatApiResponse> {
-  const response = await fetch('/api/chat', {
+  const response = await fetch(apiUrl('chat'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId, message }),

@@ -5,11 +5,15 @@ WORKDIR /app
 
 # Build-time public config. Vite inlines VITE_* at build time, so these must
 # be present here — setting them at runtime has no effect on a static bundle.
-ARG VITE_PUBLIC_SITE_URL
-ARG VITE_PUBLIC_CIFTIS_URL
+# The deployment mode is chosen here and baked into the bundle. Selecting a
+# different mode is a rebuild with different args, never a source edit.
+#   subdomain : VITE_APP_BASE_PATH=/         VITE_PUBLIC_URL=https://ciftis.caspel.com
+#   path mode : VITE_APP_BASE_PATH=/ciftis/  VITE_PUBLIC_URL=https://caspel.com/ciftis
+ARG VITE_APP_BASE_PATH=/
+ARG VITE_PUBLIC_URL
 ARG VITE_DISPLAY_RESET_SECONDS
-ENV VITE_PUBLIC_SITE_URL=$VITE_PUBLIC_SITE_URL \
-    VITE_PUBLIC_CIFTIS_URL=$VITE_PUBLIC_CIFTIS_URL \
+ENV VITE_APP_BASE_PATH=$VITE_APP_BASE_PATH \
+    VITE_PUBLIC_URL=$VITE_PUBLIC_URL \
     VITE_DISPLAY_RESET_SECONDS=$VITE_DISPLAY_RESET_SECONDS
 
 # Copy manifests first so dependency layers cache independently of source.

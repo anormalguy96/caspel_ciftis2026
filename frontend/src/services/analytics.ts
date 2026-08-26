@@ -1,4 +1,5 @@
 import { AnalyticsEventPayload } from '../types';
+import { apiUrl } from '../config/paths';
 
 const SESSION_STORAGE_KEY = 'caspel_ciftis_sid';
 
@@ -25,7 +26,7 @@ export async function trackAnalyticsEvent(
   };
 
   try {
-    await fetch('/api/events', {
+    await fetch(apiUrl('events'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

@@ -23,7 +23,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
 
   return (
     <Link
-      to={`/ciftis/product/${product.slug}`}
+      to={`/product/${product.slug}`}
       onClick={handleClick}
       className="card-link u-card u-enter"
       // Only the stagger index stays inline: it is per-item data, not styling.

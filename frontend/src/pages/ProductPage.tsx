@@ -43,7 +43,7 @@ export const ProductPage: React.FC = () => {
   }, [validSlug, product, isAvailable]);
 
   if (!validSlug || !product) {
-    return <Navigate to="/ciftis/not-found" replace />;
+    return <Navigate to="/not-found" replace />;
   }
 
   return (
@@ -55,7 +55,7 @@ export const ProductPage: React.FC = () => {
           <button
             type="button"
             className="btn btn--ghost product__back-btn"
-            onClick={() => navigate('/ciftis')}
+            onClick={() => navigate('/')}
           >
             <ArrowLeft size={18} aria-hidden="true" />
             <span>{en.actions.back}</span>
@@ -113,7 +113,7 @@ export const ProductPage: React.FC = () => {
                 {status === 'ready' && isAvailable && (
                   <>
                     <Link
-                      to={`/ciftis/presentation/${product.slug}`}
+                      to={`/presentation/${product.slug}`}
                       className="btn btn--primary btn--block"
                       onClick={() => trackAnalyticsEvent('PRESENTATION_VIEW', product.slug)}
                     >

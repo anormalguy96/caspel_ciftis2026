@@ -56,10 +56,10 @@ function mockManifest(data: PresentationManifest) {
 
 function renderProduct(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/ciftis/product/${slug}`]}>
+    <MemoryRouter initialEntries={[`/product/${slug}`]}>
       <Routes>
-        <Route path="/ciftis/product/:slug" element={<ProductPage />} />
-        <Route path="/ciftis/not-found" element={<NotFoundPage />} />
+        <Route path="/product/:slug" element={<ProductPage />} />
+        <Route path="/not-found" element={<NotFoundPage />} />
       </Routes>
     </MemoryRouter>
   );
@@ -67,10 +67,10 @@ function renderProduct(slug: string) {
 
 function renderViewer(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/ciftis/presentation/${slug}`]}>
+    <MemoryRouter initialEntries={[`/presentation/${slug}`]}>
       <Routes>
-        <Route path="/ciftis/presentation/:slug" element={<PresentationPage />} />
-        <Route path="/ciftis/not-found" element={<NotFoundPage />} />
+        <Route path="/presentation/:slug" element={<PresentationPage />} />
+        <Route path="/not-found" element={<NotFoundPage />} />
       </Routes>
     </MemoryRouter>
   );
