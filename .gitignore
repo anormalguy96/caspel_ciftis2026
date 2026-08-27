@@ -1,40 +1,24 @@
-# Python
 .venv
 __pycache__
 *.pyc
 .pytest_cache
-
-# Data / temporary artifacts
 data/*
 !data/presentations/
 !data/presentations/.gitkeep
 .backups/
-# Browser profiles created by local QA tooling. Never packaged, never inspected.
 .playwright/
 chrome-profile*/
-
-# Node.js
 node_modules/
 .env
 *.log
-
-# Docker
 *.egg-info/
 dist/
 build/
-
-# macOS
 .DS_Store
-
-# IDE / Editor
 .idea/
 .vscode/
 .claude/
-
-# Stale source snapshot, not application code.
 caspel_frontend_src.tar.gz
-
-# Documentation
 document.md
 PHASE1_REPORT.md
 ARCHITECTURE.md
@@ -50,9 +34,8 @@ report2.md
 prompt1.md
 prompt2.md
 .venv_wsl/
-
 PHASE1_REPORT.md
 implementation.md
 docs/PHASE2_1_VERIFICATION_REPORT.md
-# TypeScript incremental build cache
 *.tsbuildinfo
+Skills/
