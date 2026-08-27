@@ -88,7 +88,10 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/ciftis || exit 1"]
+      # The SPA is served at the container root in both deployment modes; any
+      # public prefix is added by the host proxy, so probing a prefixed path
+      # here would 404 and mark a healthy container unhealthy.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

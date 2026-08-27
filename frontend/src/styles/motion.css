@@ -54,6 +54,19 @@
 @keyframes backdropIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes backdropOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* The exhibition QR card.
+ *
+ * Opacity, a 12px rise and a 0.98 → 1 scale — the same vocabulary as panelIn,
+ * scaled for a screen a visitor is standing back from. It settles once and
+ * then holds absolutely still: a phone camera needs a stationary, high-contrast
+ * target, so anything that continued to move, pulse or breathe after the
+ * entrance would cost scans at the stand. `both` fill leaves the card at
+ * exactly scale(1) with no residual transform. */
+@keyframes qrIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
 @keyframes dotBounce {
   0%, 80%, 100% { opacity: 0.35; transform: none; }
   40%           { opacity: 1;    transform: translateY(-3px); }
@@ -139,6 +152,11 @@
 
 .u-panel[data-state='closing'] {
   animation: panelOut var(--dur-exit) var(--ease-in) both;
+}
+
+/* ── .u-qr-enter — exhibition QR card ──────────────────────── */
+.u-qr-enter {
+  animation: qrIn var(--dur-panel) var(--ease-out) both;
 }
 
 /* ── .u-skeleton — loading placeholder ─────────────────────── */

@@ -77,9 +77,13 @@
     "networkError": "The connection dropped before an answer came back. Please try again."
   },
   "kiosk": {
-    "tapPrompt": "TAP SCREEN TO SCAN",
-    "instruction": "Scan this QR code with your mobile device to open the digital presentation hub on your phone.",
-    "dismissPrompt": "Tap anywhere to return to presentation"
+    "tapPrompt": "TAP THE SCREEN TO SCAN",
+    "instruction": "Scan this code with your phone camera to open the CASPEL presentation hub.",
+    "dismissPrompt": "Tap anywhere to return to presentation",
+    "touchToStart": "TOUCH THE SCREEN TO START",
+    "scanTitle": "Scan to explore on your phone",
+    "fallbackTitle": "CASPEL at CIFTIS 2026",
+    "returning": "Returning to the film in {seconds}s"
   },
   "footer": {
     "website": "https://www.caspel.com",

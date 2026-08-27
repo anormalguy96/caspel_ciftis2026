@@ -17,3 +17,10 @@ interface ImportMeta {
 }
 
 declare module 'lucide-react';
+
+// Vite emits imported media as a content-hashed URL under the configured base,
+// which is what keeps the video working in both deployment modes.
+declare module "*.mp4" {
+  const src: string;
+  export default src;
+}
