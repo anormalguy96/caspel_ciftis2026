@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Calendar, ArrowRight, Mail } from 'lucide-react';
+import { Calendar, ArrowRight, Mail } from 'lucide-react';
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
 import { ProductCard } from '../components/ProductCard';
@@ -9,6 +9,7 @@ import { Footer } from '../components/Footer';
 import { PRODUCT_LIST } from '../config/products';
 import { trackAnalyticsEvent } from '../services/analytics';
 import en from '../locales/en.json';
+import caspelIcon from '../assets/caspel-icon.svg';
 
 export const LandingPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
@@ -47,7 +48,7 @@ export const LandingPage: React.FC = () => {
 
         <section className="ai-banner" aria-labelledby="ai-banner-heading">
           <span className="ai-banner__icon" aria-hidden="true">
-            <MessageSquare size={18} />
+            <img src={caspelIcon} alt="" className="ai-banner__caspel-icon" />
           </span>
 
           <div className="ai-banner__text">
