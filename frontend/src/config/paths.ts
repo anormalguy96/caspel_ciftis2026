@@ -22,10 +22,14 @@
  * ends in a slash. vite.config.ts validates and normalises the raw environment
  * value before it ever reaches here, so this is already "/" or "/segment/".
  */
+import { normalizeBasePath } from './basePath';
+
 const RAW_BASE = import.meta.env.BASE_URL || '/';
 
 /** Always exactly one leading and one trailing slash. Root is "/". */
 export const BASE_PATH: string = normalizeBasePath(RAW_BASE);
+
+export { normalizeBasePath };
 
 /**
  * React Router wants a basename WITHOUT a trailing slash, except at root where
@@ -38,17 +42,6 @@ export const ROUTER_BASENAME: string = BASE_PATH === '/' ? '/' : BASE_PATH.slice
  * Used for canonical/Open Graph metadata and the printed QR target.
  */
 export const PUBLIC_URL: string = (import.meta.env.VITE_PUBLIC_URL || '').replace(/\/+$/, '');
-
-export function normalizeBasePath(value: string): string {
-  const trimmed = (value || '').trim();
-  if (!trimmed || trimmed === '/') return '/';
-  // Collapse any accidental repeats, then re-anchor. "//ciftis" and "/ciftis//"
-  // both normalise to "/ciftis/", so a stray slash in an .env cannot produce
-  // "//" inside a generated URL.
-  const collapsed = trimmed.replace(/\/{2,}/g, '/');
-  const withLeading = collapsed.startsWith('/') ? collapsed : `/${collapsed}`;
-  return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
-}
 
 /**
  * Join a root-relative path onto the base without ever doubling a slash.

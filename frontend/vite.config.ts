@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { assertSafeBasePath, validatePublicUrl } from './src/config/basePath';
 
 /**
  * Public mount configuration.
@@ -16,71 +17,6 @@ import react from '@vitejs/plugin-react';
  *
  * Neither is a secret; both appear verbatim in the shipped HTML.
  */
-
-const BASE_PATH_PATTERN = /^\/(?:[A-Za-z0-9][A-Za-z0-9._~-]*\/)*$/;
-
-export function normalizeBasePath(raw: string | undefined): string {
-  const trimmed = (raw ?? '').trim();
-  if (!trimmed || trimmed === '/') return '/';
-
-  if (/\s/.test(trimmed)) {
-    throw new Error(`[caspel] VITE_APP_BASE_PATH contains whitespace: ${JSON.stringify(raw)}`);
-  }
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed) || trimmed.startsWith('//')) {
-    throw new Error(
-      `[caspel] VITE_APP_BASE_PATH must be a path, not a URL or protocol-relative value: ${trimmed}`
-    );
-  }
-  if (trimmed.includes('..')) {
-    throw new Error(`[caspel] VITE_APP_BASE_PATH must not contain "..": ${trimmed}`);
-  }
-
-  const collapsed = trimmed.replace(/\/{2,}/g, '/');
-  const withLeading = collapsed.startsWith('/') ? collapsed : `/${collapsed}`;
-  const normalized = withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
-
-  if (!BASE_PATH_PATTERN.test(normalized)) {
-    throw new Error(
-      `[caspel] VITE_APP_BASE_PATH is not a safe path: ${trimmed}. ` +
-        'Use "/" or "/segment/" with unreserved characters only.'
-    );
-  }
-  return normalized;
-}
-
-export function validatePublicUrl(raw: string | undefined, basePath: string, isProduction: boolean): string {
-  const value = (raw ?? '').trim().replace(/\/+$/, '');
-
-  if (!isProduction) return value || 'http://localhost:5173';
-
-  if (!value) {
-    throw new Error(
-      '[caspel] VITE_PUBLIC_URL is not set. A production build must know its own public ' +
-        'address: canonical, Open Graph and QR URLs are baked in at build time.'
-    );
-  }
-  if (!/^https:\/\//i.test(value)) {
-    throw new Error(`[caspel] VITE_PUBLIC_URL must be an https:// address, got: ${value}`);
-  }
-  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i.test(value)) {
-    throw new Error(
-      `[caspel] VITE_PUBLIC_URL is ${value}, a loopback address. Shared links and the printed ` +
-        'QR code would point at the build machine.'
-    );
-  }
-
-  // The two values describe the same mount point from different sides. If they
-  // disagree, every canonical link is wrong in a way nothing else would catch.
-  const path = new URL(value).pathname.replace(/\/+$/, '') || '/';
-  const expected = basePath === '/' ? '/' : basePath.replace(/\/$/, '');
-  if (path !== expected) {
-    throw new Error(
-      `[caspel] VITE_PUBLIC_URL path "${path}" does not match VITE_APP_BASE_PATH "${basePath}". ` +
-        `Expected the URL to end at "${expected}".`
-    );
-  }
-  return value;
-}
 
 /**
  * Substitute the public values into index.html.
@@ -102,7 +38,7 @@ function publicConfigPlugin(basePath: string, publicUrl: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
-  const basePath = normalizeBasePath(env.VITE_APP_BASE_PATH);
+  const basePath = assertSafeBasePath(env.VITE_APP_BASE_PATH);
   const publicUrl = validatePublicUrl(env.VITE_PUBLIC_URL, basePath, isProduction);
 
   return {

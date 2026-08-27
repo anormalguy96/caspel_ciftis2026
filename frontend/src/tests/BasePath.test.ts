@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeBasePath } from '../config/paths';
-import { normalizeBasePath as viteNormalize, validatePublicUrl } from '../../vite.config';
+import { normalizeBasePath, assertSafeBasePath, validatePublicUrl } from '../config/basePath';
 
 /**
  * The mount contract.
@@ -20,29 +19,29 @@ describe('base path normalisation', () => {
   it('normalises root to a single slash', () => {
     for (const input of ['/', '', '   ', undefined as unknown as string]) {
       expect(normalizeBasePath(input)).toBe('/');
-      expect(viteNormalize(input)).toBe('/');
+      expect(assertSafeBasePath(input)).toBe('/');
     }
   });
 
   it('gives a nested base exactly one leading and one trailing slash', () => {
     for (const input of ['/ciftis', 'ciftis', '/ciftis/', 'ciftis/']) {
       expect(normalizeBasePath(input)).toBe('/ciftis/');
-      expect(viteNormalize(input)).toBe('/ciftis/');
+      expect(assertSafeBasePath(input)).toBe('/ciftis/');
     }
   });
 
   it('collapses repeated slashes inside the path', () => {
-    expect(viteNormalize('/events//ciftis//')).toBe('/events/ciftis/');
+    expect(assertSafeBasePath('/events//ciftis//')).toBe('/events/ciftis/');
     expect(normalizeBasePath('/events//ciftis//')).toBe('/events/ciftis/');
   });
 
   it('supports a nested multi-segment base', () => {
-    expect(viteNormalize('/events/ciftis')).toBe('/events/ciftis/');
+    expect(assertSafeBasePath('/events/ciftis')).toBe('/events/ciftis/');
   });
 
   it('agrees with the browser-side normaliser on every accepted value', () => {
     for (const input of ['/', '/ciftis', 'ciftis/', '/events/ciftis', '/events//ciftis//']) {
-      expect(normalizeBasePath(input)).toBe(viteNormalize(input));
+      expect(normalizeBasePath(input)).toBe(assertSafeBasePath(input));
     }
   });
 });
@@ -57,7 +56,7 @@ describe('base path validation rejects unsafe values', () => {
     ['a query string', '/ciftis?x=1'],
     ['a fragment', '/ciftis#frag'],
   ])('rejects %s', (_label, value) => {
-    expect(() => viteNormalize(value)).toThrow();
+    expect(() => assertSafeBasePath(value)).toThrow();
   });
 });
 
