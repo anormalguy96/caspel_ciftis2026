@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Bot, User, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
+import { X, Send, User, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
 import en from '../locales/en.json';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import caspelIcon from '../assets/caspel-icon.svg';
 
 interface CaspelAIModalProps {
   isOpen: boolean;
@@ -119,7 +121,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
         <div className="modal__header">
           <div className="chat__brand">
             <span className="chat__brand-icon" aria-hidden="true">
-              <Bot size={18} />
+              <img src={caspelIcon} alt="CASPEL AI" className="chat__caspel-icon" />
             </span>
             <div>
               <h2 className="modal__title" id="ai-modal-title">
@@ -142,11 +144,19 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           {messages.map((msg) => (
             <div key={msg.id} className={`chat__row chat__row--${msg.role}`}>
               <span className={`chat__avatar chat__avatar--${msg.role}`} aria-hidden="true">
-                {msg.role === 'assistant' ? <Bot size={15} /> : <User size={15} />}
+                {msg.role === 'assistant' ? (
+                  <img src={caspelIcon} alt="CASPEL AI" className="chat__caspel-icon" />
+                ) : (
+                  <User size={15} />
+                )}
               </span>
 
               <div className={`chat__bubble chat__bubble--${msg.role}`}>
-                <p className="chat__text">{msg.content}</p>
+                {msg.role === 'assistant' ? (
+                  <MarkdownRenderer content={msg.content} />
+                ) : (
+                  <p className="chat__text">{msg.content}</p>
+                )}
 
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="chat__sources">
@@ -170,7 +180,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           {isLoading && (
             <div className="chat__row chat__row--assistant">
               <span className="chat__avatar chat__avatar--assistant" aria-hidden="true">
-                <Bot size={15} />
+                <img src={caspelIcon} alt="CASPEL AI" className="chat__caspel-icon" />
               </span>
               <div className="chat__bubble chat__bubble--assistant chat__bubble--loading">
                 <Dots />

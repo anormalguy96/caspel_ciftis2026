@@ -170,7 +170,30 @@
   height: 38px;
   border-radius: var(--radius-sm);
   background-color: var(--color-primary-light);
+  border: 1px solid rgba(81, 183, 72, 0.25);
   color: var(--color-primary-ink);
+}
+
+.chat__caspel-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.chat__brand-icon .chat__caspel-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.chat__avatar--assistant {
+  background-color: var(--color-primary-light);
+  border: 1px solid rgba(81, 183, 72, 0.2);
+  color: var(--color-primary-ink);
+}
+
+.chat__avatar--assistant .chat__caspel-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .chat__log {
@@ -246,6 +269,83 @@
 
 .chat__bubble--user .chat__text {
   color: #ffffff;
+}
+
+/* ── Markdown Renderer Styles ───────────────────────────────── */
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.markdown-para {
+  margin-bottom: var(--space-xs);
+}
+
+.markdown-para:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.markdown-list {
+  margin: var(--space-xs) 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.markdown-list--ordered {
+  list-style-type: decimal;
+}
+
+.markdown-list--unordered {
+  list-style-type: disc;
+}
+
+.markdown-list li {
+  margin-bottom: 2px;
+}
+
+.markdown-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--space-xs) 0;
+}
+
+.markdown-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.markdown-list-num {
+  font-weight: 600;
+  min-width: 18px;
+  color: var(--color-text-secondary);
+}
+
+.markdown-list-bullet {
+  font-weight: bold;
+  color: var(--color-primary-ink);
+}
+
+.chat__code {
+  font-family: monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 .chat__sources {
