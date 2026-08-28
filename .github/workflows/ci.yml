@@ -1,0 +1,193 @@
+name: CI
+
+# Pull requests into main, plus a manual trigger for re-running on demand.
+#
+# Deliberately NOT pull_request_target: that variant runs with the base
+# repository's token and secrets against the head branch's code, which is how a
+# fork's pull request ends up executing with write access. Nothing here needs
+# it -- this workflow only builds and tests.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only. No job publishes anything, so nothing needs more.
+permissions:
+  contents: read
+
+# One run per pull request. Pushing a fix cancels the superseded run instead of
+# leaving two sets of results racing to report on the same head.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      # No apt packages are installed on purpose. The runtime Dockerfile pulls
+      # build-essential, libpq-dev and tesseract-ocr, but the test suite needs
+      # none of them: every dependency resolves to a manylinux wheel, and the
+      # OCR path is never exercised. Verified by running this same suite in a
+      # python:3.12-slim container with no compiler present. Copying the
+      # Dockerfile's list here would add minutes per run for nothing.
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-dev.txt
+
+      # The point of this job is what is ABSENT. No .env file, no PostgreSQL,
+      # no API key, no network call to a provider. If the suite ever starts
+      # depending on any of them it fails here rather than at an exhibition.
+      - name: Assert no provider credential is present
+        run: |
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "GEMINI_API_KEY is set; this job must never reach a provider" >&2
+            exit 1
+          fi
+          if [ -f .env ]; then
+            echo ".env present in the CI checkout; it must never be committed" >&2
+            exit 1
+          fi
+          echo "No provider credential and no .env — as required."
+
+      # Runs the whole suite, including the prompt regression tests and the 34
+      # timeout regression tests.
+      - name: Run pytest
+        working-directory: backend
+        run: pytest -q
+
+  frontend:
+    name: Frontend tests and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: frontend
+        run: npm run test
+
+      # Both deployment modes are built. The public base path is compiled into
+      # the bundle, so a build that only proves one mode proves nothing about
+      # the other.
+      - name: Build — Mode A (dedicated subdomain)
+        working-directory: frontend
+        env:
+          VITE_APP_BASE_PATH: /
+          VITE_PUBLIC_URL: https://ciftis.caspel.com
+          VITE_DISPLAY_RESET_SECONDS: '25'
+        run: npm run build
+
+      - name: Build — Mode B (corporate subpath)
+        working-directory: frontend
+        env:
+          VITE_APP_BASE_PATH: /ciftis/
+          VITE_PUBLIC_URL: https://caspel.com/ciftis
+          VITE_DISPLAY_RESET_SECONDS: '25'
+        run: npm run build
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      # backend/.dockerignore does not exclude scripts/, so anything left in
+      # that directory is copied into the runtime image. Three local diagnostic
+      # helpers are deliberately untracked; this fails if one is ever committed.
+      - name: Assert excluded helper scripts are absent from the build context
+        run: |
+          status=0
+          for script in check_rag_system.py inspect_pdfs.py test_erp_modules.py; do
+            if [ -e "backend/scripts/$script" ]; then
+              echo "excluded helper script present in build context: $script" >&2
+              status=1
+            fi
+          done
+          echo "backend/scripts contains:"
+          ls -1 backend/scripts
+          exit $status
+
+      - name: Build backend image
+        run: docker build -t caspel-ci-backend:${{ github.sha }} ./backend
+
+      - name: Build nginx image — Mode A
+        run: |
+          docker build -t caspel-ci-nginx-a:${{ github.sha }} \
+            --build-arg VITE_APP_BASE_PATH=/ \
+            --build-arg VITE_PUBLIC_URL=https://ciftis.caspel.com \
+            --build-arg VITE_DISPLAY_RESET_SECONDS=25 \
+            ./frontend
+
+      - name: Build nginx image — Mode B
+        run: |
+          docker build -t caspel-ci-nginx-b:${{ github.sha }} \
+            --build-arg VITE_APP_BASE_PATH=/ciftis/ \
+            --build-arg VITE_PUBLIC_URL=https://caspel.com/ciftis \
+            --build-arg VITE_DISPLAY_RESET_SECONDS=25 \
+            ./frontend
+
+      # Confirms the built image ships only the supported scripts. No container
+      # is started, nothing is ingested and no provider is contacted.
+      - name: List scripts shipped in the backend image
+        run: docker run --rm caspel-ci-backend:${{ github.sha }} ls -1 /app/scripts
+
+  compose:
+    name: Compose validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Placeholders, not credentials. They exist so interpolation of the
+    # required variables resolves; every one is inert and clearly labelled.
+    # docker compose config only parses and renders -- it starts nothing.
+    env:
+      POSTGRES_DB: ciftis_ci
+      POSTGRES_USER: ciftis_ci
+      POSTGRES_PASSWORD: CI_ONLY_NOT_A_PRODUCTION_SECRET
+      GEMINI_API_KEY: CI_ONLY_DUMMY_KEY
+      GEMINI_CHAT_MODEL: gemini-3.5-flash-lite
+      GEMINI_EMBEDDING_MODEL: gemini-embedding-2
+      APP_ENV: test
+      ALLOW_MOCK_RAG: 'false'
+      VITE_DISPLAY_RESET_SECONDS: '25'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate — Mode A
+        env:
+          VITE_APP_BASE_PATH: /
+          VITE_PUBLIC_URL: https://ciftis.caspel.com
+        run: docker compose config -q
+
+      - name: Validate — Mode B
+        env:
+          VITE_APP_BASE_PATH: /ciftis/
+          VITE_PUBLIC_URL: https://caspel.com/ciftis
+        run: docker compose config -q
