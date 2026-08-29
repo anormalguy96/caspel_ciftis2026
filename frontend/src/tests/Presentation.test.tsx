@@ -65,11 +65,12 @@ function renderProduct(slug: string) {
   );
 }
 
-function renderViewer(slug: string) {
+function renderViewer(slug: string, search = '') {
   return render(
-    <MemoryRouter initialEntries={[`/presentation/${slug}`]}>
+    <MemoryRouter initialEntries={[`/presentation/${slug}${search}`]}>
       <Routes>
         <Route path="/presentation/:slug" element={<PresentationPage />} />
+        <Route path="/product/:slug" element={<ProductPage />} />
         <Route path="/not-found" element={<NotFoundPage />} />
       </Routes>
     </MemoryRouter>
@@ -81,12 +82,15 @@ beforeEach(() => {
 });
 
 describe('Presentation availability comes from the server manifest', () => {
-  it('offers View and Download when the deck is published', async () => {
+  it('mounts the document immediately and offers Download', async () => {
     mockManifest(manifest());
     renderProduct('caspel');
 
-    expect(await screen.findByRole('link', { name: /view presentation/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /download presentation/i })).toBeInTheDocument();
+    // The deck itself is the page. There is no intermediate "View
+    // Presentation" step to click through.
+    expect(await screen.findByTestId('pdf-viewer')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^download$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view presentation/i })).not.toBeInTheDocument();
   });
 
   it('withholds both actions when the deck is not yet supplied', async () => {
@@ -94,15 +98,15 @@ describe('Presentation availability comes from the server manifest', () => {
     renderProduct('pms');
 
     expect(await screen.findByText(/not yet published/i)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /view presentation/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /download presentation/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('pdf-viewer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^download$/i })).not.toBeInTheDocument();
   });
 
-  it('publishes a deck the moment the server reports it, with no code change', async () => {
+  it('shows a deck as soon as the approved registry reports it available', async () => {
     mockManifest(manifest({ irissea: true }));
     renderProduct('irissea');
 
-    expect(await screen.findByRole('link', { name: /view presentation/i })).toBeInTheDocument();
+    expect(await screen.findByTestId('pdf-viewer')).toBeInTheDocument();
   });
 });
 
@@ -124,8 +128,8 @@ describe('A manifest failure is reported as a failure, not as a missing deck', (
     renderProduct('caspel');
 
     await screen.findByRole('alert');
-    expect(screen.queryByRole('link', { name: /view presentation/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /download presentation/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('pdf-viewer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^download$/i })).not.toBeInTheDocument();
   });
 
   it('recovers when Retry succeeds', async () => {
@@ -146,14 +150,16 @@ describe('A manifest failure is reported as a failure, not as a missing deck', (
 
     await user.click(screen.getByRole('button', { name: /try again/i }));
 
-    expect(await screen.findByRole('link', { name: /view presentation/i })).toBeInTheDocument();
+    expect(await screen.findByTestId('pdf-viewer')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows a retryable error on the viewer page too', async () => {
+  it('carries a legacy link through to the canonical route and reports the same error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })));
     renderViewer('caspel');
 
+    // /presentation/:slug redirects; the visitor still lands on an honest,
+    // retryable error rather than a dead end.
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/could not reach the CASPEL server/i);
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();

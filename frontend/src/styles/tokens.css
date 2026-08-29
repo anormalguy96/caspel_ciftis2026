@@ -8,10 +8,15 @@
    next to CASPEL's own printed materials at the stand.
    ============================================================ */
 
-/* Self-hosted Inter Variable Font — GFW/offline safe, zero CDN dependency */
+/* Self-hosted Inter Variable Font — GFW/offline safe, zero CDN dependency.
+   Imported through the asset pipeline rather than referenced as /fonts/…:
+   an absolute URL resolves against the domain root, so under the corporate
+   subpath deployment it asked caspel.com/fonts/ and 404'd, silently dropping
+   the whole page to a fallback face. Vite rewrites this one for whichever
+   base the bundle was built with. */
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter-var.woff2') format('woff2');
+  src: url('../assets/fonts/Inter-var.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -93,4 +98,56 @@
   --color-dark-text: #ffffff;
   --color-dark-text-secondary: rgba(255, 255, 255, 0.76);
   --color-dark-text-muted: rgba(255, 255, 255, 0.56);
+}
+
+/* ============================================================
+   Stacking layers
+   ------------------------------------------------------------
+   Named so a new overlay is placed by intent rather than by
+   guessing a number higher than whatever it happened to sit
+   behind. Sticky chrome sits below anything modal, and the
+   backdrop is always directly beneath its own panel.
+   ============================================================ */
+:root {
+  --z-base: 0;
+  --z-sticky-header: 40;
+  --z-sticky-toolbar: 30;
+  --z-backdrop: 90;
+  --z-modal: 100;
+}
+
+/* ============================================================
+   Simplified Chinese typography
+   ------------------------------------------------------------
+   Han glyphs are square, dense and have no ascender/descender
+   rhythm to lean on, so Latin-tuned metrics read badly: the
+   OpenType character variants exist only in Inter's Latin set,
+   tracking pushes characters apart into separate words, and
+   uppercase transforms do nothing at all. Line height goes up
+   because CJK text needs more room between rows to stay
+   legible (W3C clreq §3).
+
+   Fonts are whatever the reader already has. Downloading a CJK
+   webfont would mean several megabytes over exhibition wifi,
+   and a Google-hosted one is unreachable on the mainland.
+   ============================================================ */
+:lang(zh-CN) {
+  --font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Source Han Sans SC', system-ui, sans-serif;
+  --font-feature: normal;
+
+  font-feature-settings: normal;
+  letter-spacing: normal;
+  line-height: 1.75;
+  /* Keep Latin product names (CASPEL, ERP, IRISSEA) unbroken while still
+     allowing Chinese runs to wrap anywhere, which is correct for Han text. */
+  word-break: normal;
+  overflow-wrap: anywhere;
+  line-break: normal;
+}
+
+:lang(zh-CN) .section-label,
+:lang(zh-CN) .hero__kicker {
+  text-transform: none;
+  letter-spacing: normal;
 }

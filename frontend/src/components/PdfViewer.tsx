@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCw, ExternalLink, Download } from 'lucide-react';
-import en from '../locales/en.json';
+import { useTranslation } from 'react-i18next';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
@@ -151,6 +151,7 @@ const PageCanvas: React.FC<PageCanvasProps> = ({
 };
 
 export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCountChange }) => {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [state, setState] = useState<LoadState>('loading');
@@ -299,23 +300,23 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
   if (state === 'error') {
     return (
       <div className="pdf-viewer__fallback" role="alert" data-testid="pdf-viewer-error">
-        <h2 className="pdf-viewer__fallback-title">{en.presentation.viewerErrorTitle}</h2>
-        <p className="pdf-viewer__fallback-text">{en.presentation.viewerErrorText}</p>
+        <h2 className="pdf-viewer__fallback-title">{t('presentation.viewerErrorTitle')}</h2>
+        <p className="pdf-viewer__fallback-text">{t('presentation.viewerErrorText')}</p>
         <div className="pdf-viewer__fallback-actions">
           {/* Retry first: a dropped byte-range request over exhibition Wi-Fi is
               the most common cause here, and refetching usually fixes it. */}
           <button type="button" className="btn btn--primary" onClick={retry}>
             <RotateCw size={16} aria-hidden="true" />
-            <span>{en.actions.retry}</span>
+            <span>{t('actions.retry')}</span>
           </button>
           <a className="btn btn--secondary" href={url} target="_blank" rel="noopener noreferrer">
             <ExternalLink size={16} aria-hidden="true" />
-            <span>{en.actions.openInNewTab}</span>
+            <span>{t('actions.openInNewTab')}</span>
           </a>
           {onDownload && (
             <button type="button" className="btn btn--secondary" onClick={onDownload}>
               <Download size={16} aria-hidden="true" />
-              <span>{en.actions.downloadPresentation}</span>
+              <span>{t('actions.downloadPresentation')}</span>
             </button>
           )}
         </div>
@@ -336,7 +337,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
             className="pdf-viewer__ctrl"
             onClick={() => goToPage(Math.max(1, currentPage - 1))}
             disabled={!doc || currentPage <= 1}
-            aria-label="Previous page"
+            aria-label={t('pdf.previous')}
           >
             ‹
           </button>
@@ -345,7 +346,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
             className="pdf-viewer__ctrl"
             onClick={() => goToPage(Math.min(doc?.numPages ?? 1, currentPage + 1))}
             disabled={!doc || currentPage >= (doc?.numPages ?? 1)}
-            aria-label="Next page"
+            aria-label={t('pdf.next')}
           >
             ›
           </button>
@@ -355,7 +356,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
             className="pdf-viewer__ctrl"
             onClick={() => changeZoom(-ZOOM_STEP)}
             disabled={zoom <= MIN_ZOOM}
-            aria-label="Zoom out"
+            aria-label={t('pdf.zoomOut')}
           >
             −
           </button>
@@ -364,7 +365,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
             className="pdf-viewer__ctrl"
             onClick={() => changeZoom(ZOOM_STEP)}
             disabled={zoom >= MAX_ZOOM}
-            aria-label="Zoom in"
+            aria-label={t('pdf.zoomIn')}
           >
             +
           </button>
@@ -377,7 +378,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
             <div className="pdf-viewer__progress">
               <div className="pdf-viewer__progress-bar" style={{ width: `${progress}%` }} />
             </div>
-            <p className="pdf-viewer__loading-text">Preparing presentation…</p>
+            <p className="pdf-viewer__loading-text">{t('pdf.preparing')}</p>
           </div>
         )}
 

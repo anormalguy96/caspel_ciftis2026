@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!-- Bilingual and base-agnostic on purpose. This page is served by nginx
+     when the application is down, so it cannot use the React locale runtime,
+     cannot know which language the visitor chose, and must not assume a
+     deployment prefix. Both languages are shown, and the link is relative so
+     it resolves correctly under / and under /ciftis/ alike. Entirely
+     self-contained: no font, no script, no CDN. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -56,12 +62,19 @@
   <body>
     <main>
       <p class="eyebrow">CASPEL · CIFTIS 2026</p>
+
       <h1>This page is temporarily unavailable</h1>
       <p>
         We are restoring the service. Please try again in a moment, or speak with
         our team at the CASPEL stand.
       </p>
-      <a href="/ciftis">Try again</a>
+
+      <h2 lang="zh-CN">该页面暂时无法访问</h2>
+      <p lang="zh-CN">
+        我们正在恢复服务。请稍后重试，或到 CASPEL 展台与我们的团队交流。
+      </p>
+
+      <a href="./">Try again · 重试</a>
     </main>
   </body>
 </html>

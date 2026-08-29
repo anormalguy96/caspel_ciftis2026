@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ROUTER_BASENAME } from './config/paths';
 import { LandingPage } from './pages/LandingPage';
 import { safeLazy } from './utils/safeLazy';
@@ -13,16 +14,19 @@ const NotFoundPage = safeLazy(() => import('./pages/NotFoundPage'), 'NotFoundPag
  * Route-level fallback. Uses the shared token palette rather than hardcoded
  * hex so it matches the app it is standing in for.
  */
-const RouteFallback: React.FC = () => (
-  <div className="route-fallback" role="status" aria-live="polite">
-    <span className="u-dots" aria-hidden="true">
-      <span style={{ ['--i' as string]: 0 }} />
-      <span style={{ ['--i' as string]: 1 }} />
-      <span style={{ ['--i' as string]: 2 }} />
-    </span>
-    <span className="route-fallback__text">Loading</span>
-  </div>
-);
+const RouteFallback: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="route-fallback" role="status" aria-live="polite">
+      <span className="u-dots" aria-hidden="true">
+        <span style={{ ['--i' as string]: 0 }} />
+        <span style={{ ['--i' as string]: 1 }} />
+        <span style={{ ['--i' as string]: 2 }} />
+      </span>
+      <span className="route-fallback__text">{t('app.loading')}</span>
+    </div>
+  );
+};
 
 /**
  * The route table, exported so the deployment-mode matrix can be asserted

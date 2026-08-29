@@ -3,7 +3,7 @@ import { X, CheckCircle, Send, AlertCircle } from 'lucide-react';
 import { LeadFormData } from '../types';
 import { submitLead } from '../services/api';
 import { trackAnalyticsEvent } from '../services/analytics';
-import en from '../locales/en.json';
+import { useTranslation } from 'react-i18next';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -25,6 +25,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
   onClose,
   defaultProduct = 'erp',
 }) => {
+  const { t } = useTranslation();
   const emptyForm = (): LeadFormData => ({
     name: '',
     company: '',
@@ -94,15 +95,15 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
         <div className="modal__header">
           <div>
             <h2 className="modal__title" id="demo-modal-title">
-              {en.demoForm.title}
+              {t('demoForm.title')}
             </h2>
-            <p className="modal__subtitle">{en.demoForm.subtitle}</p>
+            <p className="modal__subtitle">{t('demoForm.subtitle')}</p>
           </div>
           <button
             type="button"
             className="modal__close"
             onClick={handleResetAndClose}
-            aria-label={en.actions.close}
+            aria-label={t('actions.close')}
           >
             <X size={20} aria-hidden="true" />
           </button>
@@ -111,14 +112,14 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
         {isSuccess ? (
           <div className="modal__success">
             <CheckCircle size={44} className="modal__success-icon" aria-hidden="true" />
-            <h3 className="modal__success-title">{en.demoForm.successTitle}</h3>
-            <p className="modal__success-text">{en.demoForm.successMessage}</p>
+            <h3 className="modal__success-title">{t('demoForm.successTitle')}</h3>
+            <p className="modal__success-text">{t('demoForm.successMessage')}</p>
             <button
               type="button"
               className="btn btn--primary btn--block"
               onClick={handleResetAndClose}
             >
-              {en.actions.close}
+              {t('actions.close')}
             </button>
           </div>
         ) : (
@@ -145,7 +146,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
 
             <div className="field">
               <label className="field__label" htmlFor="demo-name">
-                {en.demoForm.nameLabel} *
+                {t('demoForm.nameLabel')} *
               </label>
               <input
                 id="demo-name"
@@ -155,7 +156,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
                 required
                 maxLength={255}
                 autoComplete="name"
-                placeholder={en.demoForm.namePlaceholder}
+                placeholder={t('demoForm.namePlaceholder')}
                 value={formData.name}
                 onChange={(e) => update({ name: e.target.value })}
               />
@@ -163,7 +164,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
 
             <div className="field">
               <label className="field__label" htmlFor="demo-company">
-                {en.demoForm.companyLabel} *
+                {t('demoForm.companyLabel')} *
               </label>
               <input
                 id="demo-company"
@@ -172,7 +173,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
                 required
                 maxLength={255}
                 autoComplete="organization"
-                placeholder={en.demoForm.companyPlaceholder}
+                placeholder={t('demoForm.companyPlaceholder')}
                 value={formData.company}
                 onChange={(e) => update({ company: e.target.value })}
               />
@@ -180,7 +181,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
 
             <div className="field">
               <label className="field__label" htmlFor="demo-email">
-                {en.demoForm.emailLabel} *
+                {t('demoForm.emailLabel')} *
               </label>
               <input
                 id="demo-email"
@@ -190,7 +191,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
                 maxLength={255}
                 autoComplete="email"
                 inputMode="email"
-                placeholder={en.demoForm.emailPlaceholder}
+                placeholder={t('demoForm.emailPlaceholder')}
                 value={formData.business_email}
                 onChange={(e) => update({ business_email: e.target.value })}
               />
@@ -198,7 +199,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
 
             <div className="field">
               <label className="field__label" htmlFor="demo-interest">
-                {en.demoForm.interestLabel} *
+                {t('demoForm.interestLabel')} *
               </label>
               <select
                 id="demo-interest"
@@ -224,7 +225,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
               ) : (
                 <>
                   <Send size={16} aria-hidden="true" />
-                  <span>{en.actions.submit}</span>
+                  <span>{t('actions.submit')}</span>
                 </>
               )}
             </button>

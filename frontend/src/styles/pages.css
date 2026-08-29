@@ -160,8 +160,17 @@
 /* ── Presentation viewer page ────────────────────────────── */
 
 .viewer-bar {
+  /* Sticky, never fixed. A fixed bar sits on top of the document and hides
+     the first lines of whichever slide the visitor scrolls to; sticky keeps
+     it in the flow so the page reserves its height. It sits below the header
+     in the layer order for the same reason. */
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky-toolbar);
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  /* Notched phones in landscape put the bar under the sensor housing. */
+  padding-top: env(safe-area-inset-top);
 }
 
 .viewer-bar__inner {

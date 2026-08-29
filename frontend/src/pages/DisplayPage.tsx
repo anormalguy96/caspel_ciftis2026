@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, X } from 'lucide-react';
 import { trackAnalyticsEvent } from '../services/analytics';
-import en from '../locales/en.json';
+import { useTranslation } from 'react-i18next';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { PUBLIC_URL } from '../config/paths';
 import caspelVideo from '../assets/caspel.mp4';
@@ -40,6 +40,7 @@ const PAGE_B_LABEL = PAGE_B_URL.replace(/^https?:\/\//, '');
 type VideoState = 'playing' | 'blocked' | 'failed';
 
 export const DisplayPage: React.FC = () => {
+  const { t } = useTranslation();
   const [isQrRevealed, setIsQrRevealed] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(RESET_TIMEOUT_SECONDS);
   const [videoState, setVideoState] = useState<VideoState>('playing');
@@ -181,7 +182,7 @@ export const DisplayPage: React.FC = () => {
         <div className="kiosk__notice" data-testid="kiosk-touch-to-start">
           <p className="kiosk__prompt">
             <Smartphone size={22} aria-hidden="true" />
-            <span>{en.kiosk.touchToStart}</span>
+            <span>{t('kiosk.touchToStart')}</span>
           </p>
         </div>
       )}
@@ -189,8 +190,8 @@ export const DisplayPage: React.FC = () => {
       {/* Video unavailable: the stand still gets its handoff. */}
       {videoUnavailable && (
         <div className="kiosk__fallback" data-testid="kiosk-video-fallback">
-          <h1 className="kiosk__title">{en.kiosk.fallbackTitle}</h1>
-          <p className="kiosk__subtitle">{en.kiosk.instruction}</p>
+          <h1 className="kiosk__title">{t('kiosk.fallbackTitle')}</h1>
+          <p className="kiosk__subtitle">{t('kiosk.instruction')}</p>
           {qrBlock}
         </div>
       )}
@@ -198,7 +199,7 @@ export const DisplayPage: React.FC = () => {
       {!videoUnavailable && !isQrRevealed && videoState === 'playing' && (
         <p className="kiosk__prompt kiosk__prompt--floating">
           <Smartphone size={22} aria-hidden="true" />
-          <span>{en.kiosk.tapPrompt}</span>
+          <span>{t('kiosk.tapPrompt')}</span>
         </p>
       )}
 
@@ -215,13 +216,13 @@ export const DisplayPage: React.FC = () => {
           >
             <div className="kiosk__card-head">
               <h2 className="kiosk__card-title" id="kiosk-qr-title">
-                {en.kiosk.scanTitle}
+                {t('kiosk.scanTitle')}
               </h2>
               <button
                 type="button"
                 className="kiosk__close"
                 onClick={handleDismissClick}
-                aria-label={en.actions.close}
+                aria-label={t('actions.close')}
               >
                 <X size={26} aria-hidden="true" />
               </button>
@@ -229,9 +230,9 @@ export const DisplayPage: React.FC = () => {
 
             {qrBlock}
 
-            <p className="kiosk__instruction">{en.kiosk.instruction}</p>
+            <p className="kiosk__instruction">{t('kiosk.instruction')}</p>
             <p className="kiosk__countdown" aria-live="off">
-              {en.kiosk.returning.replace('{seconds}', String(secondsRemaining))}
+              {t('kiosk.returning').replace('{seconds}', String(secondsRemaining))}
             </p>
           </div>
         </div>

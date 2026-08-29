@@ -64,11 +64,25 @@ export async function submitLead(data: LeadFormData): Promise<LeadApiResponse> {
   return response.json();
 }
 
-export async function sendChatMessage(sessionId: string, message: string): Promise<ChatApiResponse> {
+/**
+ * `uiLocale` is a hint, not an instruction. The server decides the response
+ * language from the visitor's own question and consults this only when the
+ * message is too short to classify -- "PMS" typed into a Chinese interface.
+ * Sending it does not override someone who asks in English.
+ */
+export async function sendChatMessage(
+  sessionId: string,
+  message: string,
+  uiLocale?: string
+): Promise<ChatApiResponse> {
   const response = await fetch(apiUrl('chat'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      message,
+      ...(uiLocale === 'en' || uiLocale === 'zh-CN' ? { ui_locale: uiLocale } : {}),
+    }),
   });
 
   if (response.status === 429) throw new ChatRateLimitedError();

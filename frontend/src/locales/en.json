@@ -1,12 +1,21 @@
 {
+  "app": {
+    "loading": "Loading"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "chinese": "简体中文"
+  },
   "brand": {
     "name": "CASPEL",
     "exhibition": "CIFTIS 2026 · Beijing",
-    "tagline": "Digital Presentation Hub"
+    "tagline": "Digital Presentation Hub",
+    "homeLabel": "CASPEL — CIFTIS 2026 Digital Hub"
   },
   "hero": {
     "title": "CASPEL Enterprise Solutions",
-    "subtitle": "Enterprise software for ERP, procurement management, and maritime surveillance — presented at CIFTIS 2026 in Beijing."
+    "subtitle": "Enterprise software for ERP, procurement management, and maritime surveillance, presented at CIFTIS 2026 in Beijing."
   },
   "products": {
     "caspel": {
@@ -37,9 +46,11 @@
   "actions": {
     "viewPresentation": "View Presentation",
     "downloadPresentation": "Download Presentation",
+    "download": "Download",
     "requestDemo": "Request a Demo",
     "askAi": "Ask CASPEL AI",
     "back": "Back to Solutions",
+    "home": "Back to Solutions",
     "submit": "Submit Request",
     "submitting": "Submitting...",
     "close": "Close",
@@ -63,6 +74,7 @@
   "ai": {
     "title": "CASPEL AI",
     "subtitle": "Official Exhibition Intelligence Assistant",
+    "scope": "Answers come from published CASPEL presentation material.",
     "placeholder": "Ask about CASPEL ERP, PMS, or IRISSEA...",
     "greeting": "Welcome to CASPEL at CIFTIS 2026. Ask me any question regarding our enterprise software products and presentations.",
     "suggestedPrompt": "Suggested questions:",
@@ -74,7 +86,20 @@
     "sourcesLabel": "Sources cited:",
     "unavailable": "CASPEL AI could not be reached just now. Nothing was answered — please try again in a moment, or speak with our team at the CASPEL stand.",
     "rateLimited": "That is a lot of questions in a short time. Please wait a moment and try again.",
-    "networkError": "The connection dropped before an answer came back. Please try again."
+    "networkError": "The connection dropped before an answer came back. Please try again.",
+    "searching": "Searching published presentation material",
+    "sendLabel": "Send question",
+    "inputLabel": "Your question for CASPEL AI"
+  },
+  "aiEntry": {
+    "label": "CASPEL AI",
+    "scope": "Ask about the published CASPEL presentations.",
+    "action": "Ask a question",
+    "suggestionsLabel": "Try asking",
+    "suggestions": [
+      "What does Caspel ERP cover?",
+      "What is CASPEL's engineering track record?"
+    ]
   },
   "kiosk": {
     "tapPrompt": "TAP THE SCREEN TO SCAN",
@@ -90,7 +115,8 @@
     "websiteLabel": "caspel.com",
     "email": "info@caspel.com",
     "linkedin": "https://www.linkedin.com/company/caspel",
-    "copyright": "© 2026 CASPEL LLC. All rights reserved."
+    "copyright": "© 2026 CASPEL LLC. All rights reserved.",
+    "contactLabel": "Contact CASPEL"
   },
   "presentation": {
     "unavailableTitle": "Not yet published",
@@ -98,6 +124,32 @@
     "errorTitle": "Presentation status unavailable",
     "errorText": "We could not reach the CASPEL server to check which presentations are published. This is a temporary connection problem, not a missing document.",
     "viewerErrorTitle": "This presentation could not be displayed",
-    "viewerErrorText": "The document did not finish loading in this browser. You can try again, open it in a new tab, or download it to your device."
+    "viewerErrorText": "The document did not finish loading in this browser. You can try again, open it in a new tab, or download it to your device.",
+    "loadingStatus": "Checking which presentations are published",
+    "pageCount": "{{count}} page",
+    "pageCount_other": "{{count}} pages"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "That address does not match anything on the CASPEL exhibition hub."
+  },
+  "landing": {
+    "solutions": "Solutions"
+  },
+  "cta": {
+    "title": "Speak with the CASPEL team",
+    "subtitle": "Meet our engineering specialists at the CASPEL stand, or send us a note and we will come back to you."
+  },
+  "meta": {
+    "title": "CASPEL — CIFTIS 2026 Digital Hub",
+    "description": "CASPEL at CIFTIS 2026 in Beijing. View and download the Corporate, Caspel ERP, Caspel PMS and IRISSEA LRIT presentations, and request a demo."
+  },
+  "pdf": {
+    "previous": "Previous page",
+    "next": "Next page",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "preparing": "Preparing presentation…",
+    "page": "Page {{n}} of {{total}}"
   }
 }

@@ -1,19 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, ArrowRight, Mail } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Calendar, Mail } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
+import { CaspelAIEntry } from '../components/CaspelAIEntry';
 import { ProductCard } from '../components/ProductCard';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
 import { Footer } from '../components/Footer';
-import { PRODUCT_LIST } from '../config/products';
+import { useProducts } from '../config/products';
 import { trackAnalyticsEvent } from '../services/analytics';
-import en from '../locales/en.json';
-import caspelIcon from '../assets/caspel-icon.svg';
 
+/**
+ * Order on this page is a decision, not a layout accident.
+ *
+ * A visitor arrives by scanning a code at a stand, on a phone, standing up,
+ * often mid-conversation. What they need within the first screen is: whose
+ * stand this is, what the page is for, that they can ask questions, and which
+ * presentations exist. The assistant therefore sits between the hero and the
+ * product list rather than in a banner further down, where it previously
+ * started below the fold at 390x844 and was effectively invisible.
+ *
+ * The demo and contact actions come last. They matter, but a visitor who has
+ * not yet seen a presentation has no reason to request one.
+ */
 export const LandingPage: React.FC = () => {
+  const { t } = useTranslation();
+  const products = useProducts();
+
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [seedQuestion, setSeedQuestion] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     trackAnalyticsEvent('LANDING_OPEN');
@@ -24,10 +41,16 @@ export const LandingPage: React.FC = () => {
     setIsDemoModalOpen(true);
   };
 
-  const handleOpenAi = () => {
+  const handleOpenAi = useCallback((question?: string) => {
     trackAnalyticsEvent('AI_OPEN');
+    setSeedQuestion(question);
     setIsAiModalOpen(true);
-  };
+  }, []);
+
+  const closeAi = useCallback(() => {
+    setIsAiModalOpen(false);
+    setSeedQuestion(undefined);
+  }, []);
 
   return (
     <div className="page">
@@ -35,51 +58,25 @@ export const LandingPage: React.FC = () => {
       <Hero />
 
       <main className="container landing">
+        <CaspelAIEntry onAsk={handleOpenAi} />
+
         <section aria-labelledby="solutions-heading" className="landing__section">
           <h2 id="solutions-heading" className="section-label">
-            Solutions
+            {t('landing.solutions')}
           </h2>
           <div className="landing__cards">
-            {PRODUCT_LIST.map((product, i) => (
+            {products.map((product, i) => (
               <ProductCard key={product.slug} product={product} index={i} />
             ))}
           </div>
         </section>
 
-        <section className="ai-banner" aria-labelledby="ai-banner-heading">
-          <span className="ai-banner__icon" aria-hidden="true">
-            <img src={caspelIcon} alt="" className="ai-banner__caspel-icon" />
-          </span>
-
-          <div className="ai-banner__text">
-            <h2 id="ai-banner-heading" className="ai-banner__title">
-              {en.ai.title}
-            </h2>
-            <p className="ai-banner__subtitle">
-              Answers drawn only from the presentations on this page, with the slide cited.
-            </p>
-          </div>
-
-          <button
-            id="btn-ask-ai"
-            type="button"
-            className="btn btn--secondary ai-banner__btn"
-            onClick={handleOpenAi}
-          >
-            <span>{en.actions.askAi}</span>
-            <ArrowRight size={16} aria-hidden="true" />
-          </button>
-        </section>
-
         <section className="cta" aria-labelledby="cta-heading">
           <div className="cta__text">
             <h2 id="cta-heading" className="cta__title">
-              Schedule a dedicated demo
+              {t('cta.title')}
             </h2>
-            <p className="cta__subtitle">
-              Meet our engineering specialists at the CASPEL stand, or send us a note and we will
-              come back to you.
-            </p>
+            <p className="cta__subtitle">{t('cta.subtitle')}</p>
           </div>
 
           <div className="cta__actions">
@@ -90,12 +87,12 @@ export const LandingPage: React.FC = () => {
               onClick={handleOpenDemo}
             >
               <Calendar size={18} aria-hidden="true" />
-              <span>{en.actions.requestDemo}</span>
+              <span>{t('actions.requestDemo')}</span>
             </button>
 
-            <a className="btn btn--onDark cta__btn" href={`mailto:${en.footer.email}`}>
+            <a className="btn btn--onDark cta__btn" href={`mailto:${t('footer.email')}`}>
               <Mail size={18} aria-hidden="true" />
-              <span>{en.actions.contact}</span>
+              <span>{t('actions.contact')}</span>
             </a>
           </div>
         </section>
@@ -104,7 +101,7 @@ export const LandingPage: React.FC = () => {
       <Footer />
 
       <RequestDemoModal isOpen={isDemoModalOpen} onClose={() => setIsDemoModalOpen(false)} />
-      <CaspelAIModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
+      <CaspelAIModal isOpen={isAiModalOpen} onClose={closeAi} initialQuestion={seedQuestion} />
     </div>
   );
 };

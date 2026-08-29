@@ -1,0 +1,155 @@
+{
+  "app": {
+    "loading": "加载中"
+  },
+  "language": {
+    "label": "语言",
+    "english": "English",
+    "chinese": "简体中文"
+  },
+  "brand": {
+    "name": "CASPEL",
+    "exhibition": "CIFTIS 2026 · 北京",
+    "tagline": "数字演示中心",
+    "homeLabel": "CASPEL — CIFTIS 2026 数字展示中心"
+  },
+  "hero": {
+    "title": "CASPEL 企业解决方案",
+    "subtitle": "面向企业资源计划、采购管理与海事监控的企业级软件，于北京 CIFTIS 2026 展出。"
+  },
+  "products": {
+    "caspel": {
+      "name": "Caspel",
+      "descriptor": "公司介绍",
+      "summary": "全面介绍 CASPEL 的企业生态、工程实施经验以及国际化技术能力。",
+      "downloadFilename": "CASPEL_Corporate_Presentation.pdf"
+    },
+    "erp": {
+      "name": "Caspel ERP",
+      "descriptor": "企业资源计划",
+      "summary": "统一的企业资源计划系统，涵盖财务管理、供应链物流、运营与商业智能。",
+      "downloadFilename": "CASPEL_ERP_Presentation.pdf"
+    },
+    "pms": {
+      "name": "Caspel PMS",
+      "descriptor": "采购管理系统",
+      "summary": "端到端的采购与招标管理平台，简化电子招投标、供应商资格审核与合同合规管理。",
+      "downloadFilename": "CASPEL_PMS_Presentation.pdf"
+    },
+    "irissea": {
+      "name": "IRISSEA",
+      "descriptor": "LRIT 解决方案",
+      "summary": "高精度远程识别与跟踪（LRIT）海事监控系统，符合国际海事组织（IMO）的相关规定。",
+      "downloadFilename": "IRISSEA_LRIT_Presentation.pdf"
+    }
+  },
+  "actions": {
+    "viewPresentation": "查看演示文稿",
+    "downloadPresentation": "下载演示文稿",
+    "download": "下载",
+    "requestDemo": "预约演示",
+    "askAi": "咨询 CASPEL AI",
+    "back": "返回解决方案",
+    "home": "返回解决方案",
+    "submit": "提交申请",
+    "submitting": "提交中…",
+    "close": "关闭",
+    "retry": "重试",
+    "openInNewTab": "在新标签页中打开",
+    "contact": "联系 CASPEL"
+  },
+  "demoForm": {
+    "title": "预约演示",
+    "subtitle": "与 CASPEL 专家联系，深入了解解决方案。",
+    "nameLabel": "姓名",
+    "namePlaceholder": "例如：张伟",
+    "companyLabel": "公司名称",
+    "companyPlaceholder": "例如：某某科技有限公司",
+    "emailLabel": "企业邮箱",
+    "emailPlaceholder": "例如：name@company.com",
+    "interestLabel": "感兴趣的解决方案",
+    "successTitle": "感谢您的申请",
+    "successMessage": "我们已收到您的申请，团队会尽快与您联系。"
+  },
+  "ai": {
+    "title": "CASPEL AI",
+    "subtitle": "官方展会智能助手",
+    "scope": "回答均来自已发布的 CASPEL 演示材料。",
+    "placeholder": "咨询 CASPEL ERP、PMS 或 IRISSEA…",
+    "greeting": "欢迎访问 CASPEL 在 CIFTIS 2026 的展台。您可以就我们的企业软件产品与演示材料提出任何问题。",
+    "suggestedPrompt": "推荐问题：",
+    "questions": [
+      "Caspel ERP 是什么？包含哪些模块？",
+      "Caspel PMS 如何实现采购招标自动化？",
+      "IRISSEA LRIT 具备哪些合规能力？"
+    ],
+    "sourcesLabel": "引用来源：",
+    "unavailable": "暂时无法连接 CASPEL AI，本次未生成任何回答。请稍后重试，或到 CASPEL 展台与我们的团队交流。",
+    "rateLimited": "短时间内提问过多，请稍候片刻再试。",
+    "networkError": "连接在返回答案前中断，请重试。",
+    "searching": "正在检索已发布的演示材料",
+    "sendLabel": "发送问题",
+    "inputLabel": "向 CASPEL AI 提问"
+  },
+  "aiEntry": {
+    "label": "CASPEL AI",
+    "scope": "可就已发布的 CASPEL 演示材料提问。",
+    "action": "提出问题",
+    "suggestionsLabel": "试试这样问",
+    "suggestions": [
+      "Caspel ERP 涵盖哪些内容？",
+      "CASPEL 有哪些工程实施经验？"
+    ]
+  },
+  "kiosk": {
+    "tapPrompt": "轻触屏幕以扫码",
+    "instruction": "使用手机相机扫描此二维码，打开 CASPEL 演示中心。",
+    "dismissPrompt": "轻触任意位置返回影片",
+    "touchToStart": "轻触屏幕开始播放",
+    "scanTitle": "扫码在手机上浏览",
+    "fallbackTitle": "CASPEL 亮相 CIFTIS 2026",
+    "returning": "{seconds} 秒后返回影片"
+  },
+  "footer": {
+    "website": "https://www.caspel.com",
+    "websiteLabel": "caspel.com",
+    "email": "info@caspel.com",
+    "linkedin": "https://www.linkedin.com/company/caspel",
+    "copyright": "© 2026 CASPEL LLC. 保留所有权利。",
+    "contactLabel": "联系 CASPEL"
+  },
+  "presentation": {
+    "unavailableTitle": "尚未发布",
+    "unavailableText": "该演示文稿尚未在 CIFTIS 2026 发布。CASPEL 展台的团队可以为您现场讲解。",
+    "errorTitle": "无法获取演示文稿状态",
+    "errorText": "暂时无法连接 CASPEL 服务器以确认已发布的演示文稿。这是临时的连接问题，并非文档缺失。",
+    "viewerErrorTitle": "无法显示该演示文稿",
+    "viewerErrorText": "文档未能在当前浏览器中加载完成。您可以重试、在新标签页中打开，或下载到本地设备。",
+    "loadingStatus": "正在确认已发布的演示文稿",
+    "pageCount": "{{count}} 页",
+    "pageCount_other": "{{count}} 页"
+  },
+  "notFound": {
+    "title": "页面不存在",
+    "text": "该地址在 CASPEL 展会中心没有对应的内容。"
+  },
+  "landing": {
+    "solutions": "解决方案"
+  },
+  "cta": {
+    "title": "与 CASPEL 团队交流",
+    "subtitle": "欢迎到 CASPEL 展台与我们的工程专家交流，或给我们留言，我们会尽快回复。"
+  },
+  "meta": {
+    "title": "CASPEL — CIFTIS 2026 数字展示中心",
+    "description": "CASPEL 亮相北京 CIFTIS 2026。可浏览并下载公司介绍、Caspel ERP、Caspel PMS 与 IRISSEA LRIT 演示文稿，并预约演示。"
+  },
+  "pdf": {
+    "previous": "上一页",
+    "next": "下一页",
+    "zoomOut": "缩小",
+    "zoomIn": "放大",
+    "preparing": "正在准备演示文稿…",
+    "page": "第 {{n}} 页，共 {{total}} 页"
+  }
+}

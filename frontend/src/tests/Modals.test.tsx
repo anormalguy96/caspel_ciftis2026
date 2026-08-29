@@ -161,7 +161,7 @@ describe('CASPEL AI reports failure honestly', () => {
   async function ask(user: ReturnType<typeof userEvent.setup>) {
     const input = screen.getByLabelText(/ask about caspel/i);
     await user.type(input, 'What is Caspel ERP?');
-    await user.click(screen.getByRole('button', { name: /send message/i }));
+    await user.click(screen.getByRole('button', { name: /send question/i }));
   }
 
   it('shows a retryable unavailable state for a 503', async () => {
@@ -185,7 +185,9 @@ describe('CASPEL AI reports failure honestly', () => {
     // The failure notice must not appear as a message in the transcript: the
     // whole point is that an outage is distinguishable from a reply.
     const log = screen.getByRole('log');
-    expect(log.querySelectorAll('.chat__bubble--assistant')).toHaveLength(1); // greeting only
+    // No assistant bubble at all: the assistant never replied, and there is no
+    // scripted greeting standing in for one.
+    expect(log.querySelectorAll('.chat__bubble--assistant')).toHaveLength(0);
   });
 
   it('distinguishes a rate limit from an outage', async () => {
@@ -245,6 +247,10 @@ describe('CASPEL AI reports failure honestly', () => {
 
     await ask(user);
 
-    expect(await screen.findByText(/CASPEL ERP Presentation — p.7/)).toBeInTheDocument();
+    // Sources render as a footnote list, so the document title and its page
+    // are separate elements. Both must survive exactly.
+    const cited = await screen.findByText('CASPEL ERP Presentation');
+    expect(cited.tagName).toBe('CITE');
+    expect(cited.closest('li')).toHaveTextContent('p.7');
   });
 });

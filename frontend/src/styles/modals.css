@@ -538,3 +538,149 @@
 .chat__suggestion {
   min-height: 44px;
 }
+
+/* ============================================================
+   Assistant empty state and ambient field
+   ------------------------------------------------------------
+   The ambient layer is mounted only while the assistant is open
+   and before the first question, and React unmounts it after
+   that. Nothing animates behind an answer being read, and
+   nothing keeps running behind a closed dialog.
+   ============================================================ */
+.chat__empty {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-md);
+}
+
+.chat__ambient {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  /* Decoration must never intercept a tap meant for a control. */
+  pointer-events: none;
+}
+
+.chat__ambient-field {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: var(--radius-full);
+  /* Blur is set once and never animated: animating a filter forces the
+     compositor to re-rasterise the layer every frame. */
+  filter: blur(56px);
+  opacity: 0.5;
+}
+
+.chat__ambient-field--a {
+  top: -110px;
+  left: -60px;
+  background: var(--color-primary-light);
+  animation: ambientDriftA 21s ease-in-out infinite alternate;
+}
+
+.chat__ambient-field--b {
+  right: -80px;
+  bottom: -130px;
+  background: rgba(13, 69, 96, 0.1);
+  animation: ambientDriftB 24s ease-in-out infinite alternate;
+}
+
+/* Transform and opacity only. Both are composited, so the movement costs no
+   layout and no paint; animating position or size would do both, on every
+   frame, on a phone. Amplitude is small on purpose — this should read as the
+   surface being alive, not as a screensaver competing with the text. */
+@keyframes ambientDriftA {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.42;
+  }
+  to {
+    transform: translate3d(26px, 18px, 0) scale(1.06);
+    opacity: 0.55;
+  }
+}
+
+@keyframes ambientDriftB {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.04);
+    opacity: 0.38;
+  }
+  to {
+    transform: translate3d(-22px, -16px, 0) scale(1);
+    opacity: 0.5;
+  }
+}
+
+/* An opaque surface sits between the colour fields and every readable word,
+   so contrast is measured against this and does not drift as the fields move. */
+.chat__empty-body {
+  position: relative;
+  z-index: 1;
+}
+
+.chat__empty-scope {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.chat__empty .chat__suggested-label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Completely still, not merely fast. A very short loop is still motion in
+     the periphery for someone who asked for none. */
+  .chat__ambient-field {
+    animation: none;
+  }
+
+  .chat__ambient-field--a {
+    transform: translate3d(13px, 9px, 0) scale(1.03);
+    opacity: 0.48;
+  }
+
+  .chat__ambient-field--b {
+    transform: translate3d(-11px, -8px, 0) scale(1.02);
+    opacity: 0.44;
+  }
+}
+
+/* ============================================================
+   Cited sources
+   ------------------------------------------------------------
+   A footnote list, not a row of decorative pills. These are the
+   exact document and page a visitor can ask to see at the
+   stand, so they read as a reference and are selectable.
+   ============================================================ */
+.chat__sources-list {
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat__source {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+  padding: 2px 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.chat__source-doc {
+  font-style: normal;
+  font-weight: 600;
+}
+
+.chat__source-page {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

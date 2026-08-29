@@ -3,7 +3,8 @@ import { X, Send, User, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
-import en from '../locales/en.json';
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -12,6 +13,8 @@ import caspelIcon from '../assets/caspel-icon.svg';
 interface CaspelAIModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Opening question from a landing-page suggestion, sent once on open. */
+  initialQuestion?: string;
 }
 
 interface ChatFailure {
@@ -28,25 +31,32 @@ const Dots: React.FC = () => (
   </span>
 );
 
-export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: en.ai.greeting,
-      timestamp: new Date().toISOString(),
-    },
-  ]);
+export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, initialQuestion }) => {
+  const { t } = useTranslation();
+  // Starts empty. A scripted greeting rendered as an assistant bubble is a
+  // transcript of a conversation that never happened, and it pushes the real
+  // scope statement and the starter questions below it.
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ChatFailure | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const seededRef = useRef<string | undefined>(undefined);
 
   const transitionState = useExitTransition(isOpen);
   const panelRef = useModalA11y<HTMLDivElement>(isOpen, onClose);
 
+  /** True until the visitor has actually asked something. */
+  const isEmptyState = messages.length === 0 && !isLoading && !failure;
+
   useEffect(() => {
-    if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isOpen) return;
+    // Honour a reduced-motion preference here too: an abrupt jump is the
+    // correct behaviour for someone who asked not to be moved.
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
   }, [messages, failure, isOpen]);
 
   const ask = useCallback(async (query: string, echoQuestion: boolean) => {
@@ -65,7 +75,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
     }
 
     try {
-      const response = await sendChatMessage(getSessionId(), query);
+      const response = await sendChatMessage(getSessionId(), query, currentLocale());
       setMessages((prev) => [
         ...prev,
         {
@@ -83,22 +93,43 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
       // report. It is surfaced as an explicit, retryable failure instead.
       const message =
         error instanceof ChatRateLimitedError
-          ? en.ai.rateLimited
+          ? t('ai.rateLimited')
           : error instanceof ChatUnavailableError
-            ? en.ai.unavailable
-            : en.ai.networkError;
+            ? t('ai.unavailable')
+            : t('ai.networkError');
       setFailure({ question: query, message });
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const handleSendMessage = (text: string) => {
-    const query = text.trim();
-    if (!query || isLoading) return;
-    setInputValue('');
-    void ask(query, true);
-  };
+  const handleSendMessage = useCallback(
+    (text: string) => {
+      const query = text.trim();
+      if (!query || isLoading) return;
+      setInputValue('');
+      void ask(query, true);
+    },
+    [ask, isLoading]
+  );
+
+  const starterQuestions = (t('ai.questions', { returnObjects: true }) as string[]) ?? [];
+
+  /**
+   * A suggestion chosen on the landing page is sent once, when the assistant
+   * opens. Guarded by a ref rather than the message list so a re-render, or
+   * StrictMode's double effect, cannot ask the same question twice — which
+   * would both duplicate the analytics event and spend a second provider call.
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      seededRef.current = undefined;
+      return;
+    }
+    if (!initialQuestion || seededRef.current === initialQuestion) return;
+    seededRef.current = initialQuestion;
+    handleSendMessage(initialQuestion);
+  }, [isOpen, initialQuestion, handleSendMessage]);
 
   if (transitionState === null) return null;
 
@@ -125,16 +156,16 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
             </span>
             <div>
               <h2 className="modal__title" id="ai-modal-title">
-                {en.ai.title}
+                {t('ai.title')}
               </h2>
-              <p className="modal__subtitle">{en.ai.subtitle}</p>
+              <p className="modal__subtitle">{t('ai.subtitle')}</p>
             </div>
           </div>
           <button
             type="button"
             className="modal__close"
             onClick={onClose}
-            aria-label={en.actions.close}
+            aria-label={t('actions.close')}
           >
             <X size={20} aria-hidden="true" />
           </button>
@@ -162,15 +193,23 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
                   <div className="chat__sources">
                     <span className="chat__sources-head">
                       <BookOpen size={13} aria-hidden="true" />
-                      <span>{en.ai.sourcesLabel}</span>
+                      <span>{t('ai.sourcesLabel')}</span>
                     </span>
-                    <span className="chat__chips">
+                    {/*
+                      A footnote list, not decorative pills. These are the
+                      document and page a visitor can check at the stand, so
+                      they are readable, selectable, and never translated: the
+                      title is the exact approved filename's document title and
+                      the page number is server-owned.
+                    */}
+                    <ol className="chat__sources-list">
                       {msg.sources.map((src, i) => (
-                        <span key={i} className="chat__chip">
-                          {src.document} — p.{src.page}
-                        </span>
+                        <li key={i} className="chat__source" lang="en">
+                          <cite className="chat__source-doc">{src.document}</cite>
+                          <span className="chat__source-page">p.{src.page}</span>
+                        </li>
                       ))}
-                    </span>
+                    </ol>
                   </div>
                 )}
               </div>
@@ -202,7 +241,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
                   disabled={isLoading}
                 >
                   <RotateCw size={15} aria-hidden="true" />
-                  <span>{en.actions.retry}</span>
+                  <span>{t('actions.retry')}</span>
                 </button>
               </div>
             </div>
@@ -211,20 +250,37 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           <div ref={messagesEndRef} />
         </div>
 
-        {messages.length <= 2 && !failure && (
-          <div className="chat__suggested">
-            <span className="chat__suggested-label">{en.ai.suggestedPrompt}</span>
-            <div className="chat__suggested-list">
-              {en.ai.questions.map((q, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className="chat__suggestion"
-                  onClick={() => handleSendMessage(q)}
-                >
-                  {q}
-                </button>
-              ))}
+        {isEmptyState && (
+          <div className="chat__empty" data-testid="chat-empty-state">
+            {/*
+              The ambient field is mounted only here: while the assistant is
+              open and before the first question. Once a real answer is on
+              screen it unmounts, so nothing animates behind text a visitor is
+              reading, and nothing keeps animating behind a closed dialog.
+            */}
+            <div className="chat__ambient" aria-hidden="true">
+              <span className="chat__ambient-field chat__ambient-field--a" />
+              <span className="chat__ambient-field chat__ambient-field--b" />
+            </div>
+
+            <div className="chat__empty-body">
+              <p className="chat__empty-scope">{t('ai.scope')}</p>
+
+              <span className="chat__suggested-label" id="ai-suggested-label">
+                {t('ai.suggestedPrompt')}
+              </span>
+              <div className="chat__suggested-list" role="group" aria-labelledby="ai-suggested-label">
+                {starterQuestions.slice(0, 3).map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className="chat__suggestion"
+                    onClick={() => handleSendMessage(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -237,14 +293,14 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
           }}
         >
           <label className="visually-hidden" htmlFor="ai-input">
-            {en.ai.placeholder}
+            {t('ai.placeholder')}
           </label>
           <input
             id="ai-input"
             data-autofocus
             className="field__input chat__input"
             type="text"
-            placeholder={en.ai.placeholder}
+            placeholder={t('ai.placeholder')}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             autoComplete="off"
@@ -253,7 +309,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose })
             type="submit"
             className="chat__send"
             disabled={!inputValue.trim() || isLoading}
-            aria-label="Send message"
+            aria-label={t('ai.sendLabel')}
           >
             <Send size={18} aria-hidden="true" />
           </button>
