@@ -169,8 +169,14 @@ describe('CASPEL AI reports failure honestly', () => {
     const user = await openChat();
 
     const ambient = screen.getByTestId('chat-ambient');
-    expect(ambient.querySelectorAll('.chat__ambient-field')).toHaveLength(5);
+    // Three colour fields and three rings. The count is asserted because it is
+    // a deliberate budget rather than an aesthetic accident: every one of these
+    // is a promoted, blurred compositor layer, and an exhibition phone pays for
+    // each of them. Adding more stops reading as distinct light and starts
+    // costing GPU memory.
+    expect(ambient.querySelectorAll('.chat__ambient-field')).toHaveLength(3);
     expect(ambient.querySelectorAll('.chat__ambient-loop')).toHaveLength(3);
+    expect(ambient.querySelectorAll('[class*="ambient-"]')).toHaveLength(6);
     expect(screen.getByRole('log')).toHaveAttribute('data-empty', 'true');
 
     await ask(user);

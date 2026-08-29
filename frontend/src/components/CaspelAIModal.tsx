@@ -173,11 +173,13 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
 
         {isEmptyState && (
           <div className="chat__ambient" aria-hidden="true" data-testid="chat-ambient">
+            {/* Six animated layers, not nine. Three fields carry colour and
+                three rings carry structure; past that the overlaps stop
+                reading as distinct light events and start costing a phone
+                real GPU memory for no visible gain. */}
             <span className="chat__ambient-field chat__ambient-field--a" />
             <span className="chat__ambient-field chat__ambient-field--b" />
             <span className="chat__ambient-field chat__ambient-field--c" />
-            <span className="chat__ambient-field chat__ambient-field--d" />
-            <span className="chat__ambient-field chat__ambient-field--e" />
             <span className="chat__ambient-loop chat__ambient-loop--a" />
             <span className="chat__ambient-loop chat__ambient-loop--b" />
             <span className="chat__ambient-loop chat__ambient-loop--c" />
