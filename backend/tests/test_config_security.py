@@ -23,7 +23,6 @@ def prod_settings(**overrides) -> Settings:
         APP_ENV="production",
         POSTGRES_PASSWORD="a-sufficiently-long-password",
         GEMINI_API_KEY="live-key",
-        ALLOW_MOCK_RAG=False,
         TRUSTED_PROXY_COUNT=1,
         DATABASE_URL=None,
     )
@@ -67,21 +66,28 @@ def test_production_refuses_a_missing_gemini_key():
         settings.enforce_production_config()
 
 
-def test_production_refuses_mock_rag():
-    """A mocked assistant must never run at an exhibition."""
-    settings = prod_settings(ALLOW_MOCK_RAG=True)
+def test_production_requires_a_configured_provider():
+    """
+    The real invariant, now that the dead ALLOW_MOCK_RAG guard is gone.
 
-    with pytest.raises(ConfigurationError, match="ALLOW_MOCK_RAG"):
+    That flag never selected a canned-answer path — nothing in app/rag/ ever
+    read it. It only refused to start. What actually keeps an unanswerable
+    assistant off a stand is this: no key, no production start, and the
+    generation service raises rather than inventing a reply.
+    """
+    settings = prod_settings(GEMINI_API_KEY="")
+
+    with pytest.raises(ConfigurationError, match="GEMINI_API_KEY"):
         settings.enforce_production_config()
 
 
 def test_production_reports_every_problem_at_once():
     """An operator fixing a stand deployment needs the whole list, not the first."""
-    settings = prod_settings(POSTGRES_PASSWORD="", GEMINI_API_KEY="", ALLOW_MOCK_RAG=True)
+    settings = prod_settings(POSTGRES_PASSWORD="", GEMINI_API_KEY="", TRUSTED_PROXY_COUNT=0)
 
     problems = settings.production_problems()
 
-    assert len(problems) >= 3
+    assert len(problems) >= 2
 
 
 def test_development_is_not_blocked_by_the_production_guard():

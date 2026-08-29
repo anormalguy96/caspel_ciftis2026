@@ -130,12 +130,8 @@ def main() -> int:
     print(f"embed model : {settings.GEMINI_EMBEDDING_MODEL}")
     # Presence only. The value never appears in output.
     print(f"api key     : {'configured' if (settings.GEMINI_API_KEY or '').strip() else 'MISSING'}")
-    print(f"mock mode   : {'ON — this run is not valid' if settings.ALLOW_MOCK_RAG else 'off'}")
-    print("")
 
-    if settings.ALLOW_MOCK_RAG:
-        print("ALLOW_MOCK_RAG is true. Refusing to certify a mocked assistant.")
-        return 2
+    print("")
 
     results = [ask(label, question) for label, question in QUESTIONS]
 

@@ -40,11 +40,6 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 768
     RAG_SIMILARITY_THRESHOLD: float = 0.70
 
-    # Escape hatch for local development without a Gemini key. Production
-    # readiness requires this to be false; /api/ready refuses to report ready
-    # while it is on, so a mocked assistant can never be mistaken for a live one.
-    ALLOW_MOCK_RAG: bool = False
-
     # Presentation / Data paths
     DATA_PRESENTATIONS_DIR: str = "/data/presentations"
 
@@ -144,9 +139,6 @@ class Settings(BaseSettings):
             problems.append("POSTGRES_PASSWORD is empty and no DATABASE_URL was supplied.")
         elif self.POSTGRES_PASSWORD and len(self.POSTGRES_PASSWORD) < 16:
             problems.append("POSTGRES_PASSWORD is shorter than 16 characters.")
-
-        if self.ALLOW_MOCK_RAG:
-            problems.append("ALLOW_MOCK_RAG must be false in production.")
 
         if not (self.GEMINI_API_KEY or "").strip():
             problems.append("GEMINI_API_KEY is not set.")

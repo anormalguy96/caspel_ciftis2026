@@ -19,7 +19,7 @@ logger = logging.getLogger("caspel_ciftis")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Refuse to come up misconfigured rather than serving an exhibition from a
-    # process with a weak database password or a mocked assistant.
+    # process with a weak database password or no configured provider.
     settings.enforce_production_config()
 
     logger.info("Starting CASPEL CIFTIS 2026 backend (env=%s)", settings.APP_ENV)

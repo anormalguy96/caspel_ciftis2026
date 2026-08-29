@@ -78,7 +78,6 @@ class ReadyChecks(BaseModel):
     database: bool
     vector_extension: bool
     live_ai_provider: bool
-    mock_mode_disabled: bool
     approved_corpus: bool
 
 

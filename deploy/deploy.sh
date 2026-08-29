@@ -58,8 +58,6 @@ require_env() {
   esac
 
   if grep -qE "^APP_ENV=production" .env; then
-    grep -qE "^ALLOW_MOCK_RAG=true" .env \
-      && fail "ALLOW_MOCK_RAG must be false in production"
     local pw_len
     pw_len=$(grep -E "^POSTGRES_PASSWORD=" .env | head -n1 | cut -d= -f2- | wc -c)
     (( pw_len > 16 )) \

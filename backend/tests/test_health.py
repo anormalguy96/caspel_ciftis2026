@@ -23,7 +23,6 @@ def live_provider(monkeypatch):
     import app.api.routes as routes
 
     monkeypatch.setattr(routes.settings, "GEMINI_API_KEY", "test-api-key")
-    monkeypatch.setattr(routes.settings, "ALLOW_MOCK_RAG", False)
     for service in (routes.embedding_service, routes.generation_service):
         monkeypatch.setattr(service, "api_key", "test-api-key")
         monkeypatch.setattr(service, "_client", object())
@@ -118,7 +117,6 @@ async def test_ready_when_every_approved_deck_is_indexed(
         "database": True,
         "vector_extension": True,
         "live_ai_provider": True,
-        "mock_mode_disabled": True,
         "approved_corpus": True,
     }
 
@@ -227,19 +225,27 @@ async def test_ready_refuses_when_no_live_provider_is_configured(
 
 
 @pytest.mark.asyncio
-async def test_ready_refuses_while_mock_mode_is_on(
+async def test_ready_refuses_without_a_configured_provider(
     client: AsyncClient, db_session: AsyncSession, live_provider, monkeypatch
 ):
-    """A mocked assistant must never be certified as a live one."""
+    """
+    Readiness reports the real dependencies only.
+
+    The removed ALLOW_MOCK_RAG check was a guard over a path that did not
+    exist: no code in app/rag/ ever read it, so it could never have enabled a
+    canned answer. What genuinely has to gate readiness is whether a live
+    provider is configured at all.
+    """
     import app.api.routes as routes
 
     await seed_approved_corpus(db_session)
-    monkeypatch.setattr(routes.settings, "ALLOW_MOCK_RAG", True)
+    monkeypatch.setattr(routes.settings, "GEMINI_API_KEY", "")
 
     response = await client.get("/api/ready")
 
     assert response.status_code == 503
-    assert response.json()["checks"]["mock_mode_disabled"] is False
+    assert response.json()["checks"]["live_ai_provider"] is False
+    assert "mock_mode_disabled" not in response.json()["checks"]
 
 
 @pytest.mark.asyncio

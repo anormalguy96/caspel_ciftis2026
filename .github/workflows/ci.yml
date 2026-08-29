@@ -175,7 +175,6 @@ jobs:
       GEMINI_CHAT_MODEL: gemini-3.5-flash-lite
       GEMINI_EMBEDDING_MODEL: gemini-embedding-2
       APP_ENV: test
-      ALLOW_MOCK_RAG: 'false'
       VITE_DISPLAY_RESET_SECONDS: '25'
     steps:
       - uses: actions/checkout@v4

@@ -162,19 +162,14 @@ async def ready_check(response: Response, db: AsyncSession = Depends(get_db)):
         and embedding_service.is_live_provider
         and generation_service.is_live_provider
     )
-    mock_mode_disabled = not settings.ALLOW_MOCK_RAG
-
     checks = ReadyChecks(
         database=database,
         vector_extension=vector_extension,
         live_ai_provider=live_ai_provider,
-        mock_mode_disabled=mock_mode_disabled,
         approved_corpus=approved_corpus,
     )
 
-    is_ready = all(
-        [database, vector_extension, live_ai_provider, mock_mode_disabled, approved_corpus]
-    )
+    is_ready = all([database, vector_extension, live_ai_provider, approved_corpus])
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 

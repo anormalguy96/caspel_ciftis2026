@@ -44,9 +44,6 @@ services:
       # key needs only a .env change plus `docker compose up -d backend`.
       GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.5-flash-lite}
       GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
-      # Never true in a deployed stack: a mocked assistant at an exhibition
-      # would answer visitors with text that came from nowhere.
-      ALLOW_MOCK_RAG: ${ALLOW_MOCK_RAG:-false}
 
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       # Exactly one proxy (the nginx container) sits in front of the app.
