@@ -34,7 +34,11 @@ export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
   return (
     <section className="ai-entry" aria-labelledby="ai-entry-heading">
       <button type="button" className="ai-entry__prompt" onClick={() => onAsk()}>
-        <span className="ai-entry__icon" aria-hidden="true">
+        <span className="ai-entry__signal" aria-hidden="true">
+          <span className="ai-entry__signal-glow ai-entry__signal-glow--a" />
+          <span className="ai-entry__signal-glow ai-entry__signal-glow--b" />
+          <span className="ai-entry__signal-loop ai-entry__signal-loop--a" />
+          <span className="ai-entry__signal-loop ai-entry__signal-loop--b" />
           <img src={caspelIcon} alt="" className="ai-entry__icon-img" />
         </span>
 
@@ -45,7 +49,10 @@ export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
           <span className="ai-entry__scope">{t('aiEntry.scope')}</span>
         </span>
 
-        <span className="ai-entry__action">{t('aiEntry.action')}</span>
+        <span className="ai-entry__action">
+          <span>{t('aiEntry.action')}</span>
+          <span aria-hidden="true">↗</span>
+        </span>
       </button>
 
       {Array.isArray(suggestions) && suggestions.length > 0 && (

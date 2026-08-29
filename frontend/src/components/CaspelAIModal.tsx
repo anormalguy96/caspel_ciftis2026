@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, User, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
+import { X, Send, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
@@ -135,7 +135,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
 
   return (
     <div
-      className="modal-backdrop u-backdrop"
+      className="modal-backdrop modal-backdrop--chat u-backdrop"
       data-state={transitionState}
       onClick={onClose}
     >
@@ -171,18 +171,61 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
           </button>
         </div>
 
-        <div className="chat__log" role="log" aria-live="polite">
+        {isEmptyState && (
+          <div className="chat__ambient" aria-hidden="true" data-testid="chat-ambient">
+            <span className="chat__ambient-field chat__ambient-field--a" />
+            <span className="chat__ambient-field chat__ambient-field--b" />
+            <span className="chat__ambient-field chat__ambient-field--c" />
+            <span className="chat__ambient-field chat__ambient-field--d" />
+            <span className="chat__ambient-field chat__ambient-field--e" />
+            <span className="chat__ambient-loop chat__ambient-loop--a" />
+            <span className="chat__ambient-loop chat__ambient-loop--b" />
+            <span className="chat__ambient-loop chat__ambient-loop--c" />
+          </div>
+        )}
+
+        <div
+          className="chat__log"
+          data-empty={isEmptyState ? 'true' : 'false'}
+          role="log"
+          aria-live="polite"
+        >
+          {isEmptyState && (
+            <div className="chat__empty" data-testid="chat-empty-state">
+              <div className="chat__empty-heading">
+                <span className="chat__empty-kicker">{t('ai.title')}</span>
+                <p className="chat__empty-scope">{t('ai.scope')}</p>
+              </div>
+
+              <span className="chat__suggested-label" id="ai-suggested-label">
+                {t('ai.suggestedPrompt')}
+              </span>
+              <div className="chat__suggested-list" role="group" aria-labelledby="ai-suggested-label">
+                {starterQuestions.slice(0, 3).map((q, index) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className="chat__suggestion"
+                    onClick={() => handleSendMessage(q)}
+                  >
+                    <span className="chat__suggestion-index" aria-hidden="true">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span>{q}</span>
+                    <span className="chat__suggestion-arrow" aria-hidden="true">↗</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {messages.map((msg) => (
             <div key={msg.id} className={`chat__row chat__row--${msg.role}`}>
-              <span className={`chat__avatar chat__avatar--${msg.role}`} aria-hidden="true">
-                {msg.role === 'assistant' ? (
-                  <img src={caspelIcon} alt="CASPEL AI" className="chat__caspel-icon" />
-                ) : (
-                  <User size={15} />
-                )}
+              <span className="chat__speaker">
+                {msg.role === 'assistant' ? t('ai.title') : t('ai.youLabel')}
               </span>
 
-              <div className={`chat__bubble chat__bubble--${msg.role}`}>
+              <div className={`chat__message chat__message--${msg.role}`}>
                 {msg.role === 'assistant' ? (
                   <MarkdownRenderer content={msg.content} />
                 ) : (
@@ -218,10 +261,8 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
 
           {isLoading && (
             <div className="chat__row chat__row--assistant">
-              <span className="chat__avatar chat__avatar--assistant" aria-hidden="true">
-                <img src={caspelIcon} alt="CASPEL AI" className="chat__caspel-icon" />
-              </span>
-              <div className="chat__bubble chat__bubble--assistant chat__bubble--loading">
+              <span className="chat__speaker">{t('ai.title')}</span>
+              <div className="chat__message chat__message--assistant chat__message--loading">
                 <Dots />
               </div>
             </div>
@@ -249,41 +290,6 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
 
           <div ref={messagesEndRef} />
         </div>
-
-        {isEmptyState && (
-          <div className="chat__empty" data-testid="chat-empty-state">
-            {/*
-              The ambient field is mounted only here: while the assistant is
-              open and before the first question. Once a real answer is on
-              screen it unmounts, so nothing animates behind text a visitor is
-              reading, and nothing keeps animating behind a closed dialog.
-            */}
-            <div className="chat__ambient" aria-hidden="true">
-              <span className="chat__ambient-field chat__ambient-field--a" />
-              <span className="chat__ambient-field chat__ambient-field--b" />
-            </div>
-
-            <div className="chat__empty-body">
-              <p className="chat__empty-scope">{t('ai.scope')}</p>
-
-              <span className="chat__suggested-label" id="ai-suggested-label">
-                {t('ai.suggestedPrompt')}
-              </span>
-              <div className="chat__suggested-list" role="group" aria-labelledby="ai-suggested-label">
-                {starterQuestions.slice(0, 3).map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className="chat__suggestion"
-                    onClick={() => handleSendMessage(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         <form
           className="chat__composer"

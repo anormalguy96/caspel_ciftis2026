@@ -1,5 +1,4 @@
 import React from 'react';
-import { Globe, Mail, Linkedin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import caspelLogo from '../assets/caspel-logo-horizontal.svg';
 import ciftisLogo from '../assets/ciftis-logo.png';
@@ -20,9 +19,9 @@ export const Footer: React.FC = () => {
   const { t } = useTranslation();
 
   const links = [
-    { key: 'website', href: t('footer.website'), label: t('footer.websiteLabel'), Icon: Globe, external: true },
-    { key: 'email', href: `mailto:${t('footer.email')}`, label: t('footer.email'), Icon: Mail, external: false },
-    { key: 'linkedin', href: t('footer.linkedin'), label: 'LinkedIn', Icon: Linkedin, external: true },
+    { key: 'website', href: t('footer.website'), label: t('footer.websiteLabel'), external: true },
+    { key: 'email', href: `mailto:${t('footer.email')}`, label: t('footer.email'), external: false },
+    { key: 'linkedin', href: t('footer.linkedin'), label: 'LinkedIn', external: true },
   ];
 
   return (
@@ -38,15 +37,17 @@ export const Footer: React.FC = () => {
         </div>
 
         <nav className="site-footer__links" aria-label={t('footer.contactLabel')}>
-          {links.map(({ key, href, label, Icon, external }) => (
+          {links.map(({ key, href, label, external }) => (
             <a
               key={key}
               href={href}
               className="site-footer__link u-link"
               {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
             >
-              <Icon size={15} aria-hidden="true" />
               <span>{label}</span>
+              <span className="site-footer__link-arrow" aria-hidden="true">
+                {external ? '↗' : '→'}
+              </span>
             </a>
           ))}
         </nav>

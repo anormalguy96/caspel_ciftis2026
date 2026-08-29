@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { ProductConfig } from '../types';
 import { trackAnalyticsEvent } from '../services/analytics';
 
@@ -25,18 +24,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
     <Link
       to={`/product/${product.slug}`}
       onClick={handleClick}
-      className="card-link u-card u-enter"
+      className="card-link u-enter"
       // Only the stagger index stays inline: it is per-item data, not styling.
       style={{ ['--i' as string]: index }}
-      aria-label={`${product.name} — ${product.descriptor}`}
+      aria-label={`${product.name}: ${product.descriptor}`}
     >
+      <span className="card-link__index" aria-hidden="true">
+        {String(index + 1).padStart(2, '0')}
+      </span>
+
       <span className="card-link__text">
         <span className="card-link__name">{product.name}</span>
         <span className="card-link__descriptor">{product.descriptor}</span>
       </span>
 
-      <span className="u-card__arrow" aria-hidden="true">
-        <ArrowRight size={18} />
+      <span className="card-link__arrow" aria-hidden="true">
+        <span className="card-link__arrow-line" />
+        <span>→</span>
       </span>
     </Link>
   );

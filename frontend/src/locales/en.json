@@ -89,7 +89,8 @@
     "networkError": "The connection dropped before an answer came back. Please try again.",
     "searching": "Searching published presentation material",
     "sendLabel": "Send question",
-    "inputLabel": "Your question for CASPEL AI"
+    "inputLabel": "Your question for CASPEL AI",
+    "youLabel": "You"
   },
   "aiEntry": {
     "label": "CASPEL AI",

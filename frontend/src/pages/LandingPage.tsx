@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
@@ -53,49 +52,54 @@ export const LandingPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="page">
+    <div className="page page--landing">
       <Header />
-      <Hero />
-
-      <main className="container landing">
-        <CaspelAIEntry onAsk={handleOpenAi} />
-
-        <section aria-labelledby="solutions-heading" className="landing__section">
-          <h2 id="solutions-heading" className="section-label">
-            {t('landing.solutions')}
-          </h2>
-          <div className="landing__cards">
-            {products.map((product, i) => (
-              <ProductCard key={product.slug} product={product} index={i} />
-            ))}
+      <main className="landing">
+        <div className="landing-stage">
+          <Hero />
+          <div className="container landing-stage__assistant">
+            <CaspelAIEntry onAsk={handleOpenAi} />
           </div>
-        </section>
+        </div>
 
-        <section className="cta" aria-labelledby="cta-heading">
-          <div className="cta__text">
-            <h2 id="cta-heading" className="cta__title">
-              {t('cta.title')}
+        <div className="container landing__body">
+          <section aria-labelledby="solutions-heading" className="landing__section">
+            <h2 id="solutions-heading" className="section-label">
+              {t('landing.solutions')}
             </h2>
-            <p className="cta__subtitle">{t('cta.subtitle')}</p>
-          </div>
+            <div className="landing__cards">
+              {products.map((product, i) => (
+                <ProductCard key={product.slug} product={product} index={i} />
+              ))}
+            </div>
+          </section>
 
-          <div className="cta__actions">
-            <button
-              id="btn-request-demo"
-              type="button"
-              className="btn btn--primary cta__btn"
-              onClick={handleOpenDemo}
-            >
-              <Calendar size={18} aria-hidden="true" />
-              <span>{t('actions.requestDemo')}</span>
-            </button>
+          <section className="cta" aria-labelledby="cta-heading">
+            <div className="cta__text">
+              <h2 id="cta-heading" className="cta__title">
+                {t('cta.title')}
+              </h2>
+              <p className="cta__subtitle">{t('cta.subtitle')}</p>
+            </div>
 
-            <a className="btn btn--onDark cta__btn" href={`mailto:${t('footer.email')}`}>
-              <Mail size={18} aria-hidden="true" />
-              <span>{t('actions.contact')}</span>
-            </a>
-          </div>
-        </section>
+            <div className="cta__actions">
+              <button
+                id="btn-request-demo"
+                type="button"
+                className="btn btn--primary cta__btn"
+                onClick={handleOpenDemo}
+              >
+                <span>{t('actions.requestDemo')}</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+
+              <a className="btn btn--secondary cta__btn" href={`mailto:${t('footer.email')}`}>
+                <span>{t('actions.contact')}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+          </section>
+        </div>
       </main>
 
       <Footer />

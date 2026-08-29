@@ -45,6 +45,13 @@
   --color-primary-ink: #2f7a2a;
   --color-primary-light: rgba(81, 183, 72, 0.12);
 
+  /* Broader chromatic signals are isolated to the assistant surface. */
+  --color-ai-lime: #70f65e;
+  --color-ai-cyan: #28d7f7;
+  --color-ai-blue: #4388ff;
+  --color-ai-violet: #8b65ff;
+  --color-ai-coral: #ff755c;
+
   /* ── Text ─────────────────────────────────────────────── */
   --color-text: #0e2230;      /* 14.9:1 on --color-bg */
   --color-text-secondary: #4a5a68; /*  7.2:1 on --color-bg */

@@ -164,6 +164,23 @@ describe('CASPEL AI reports failure honestly', () => {
     await user.click(screen.getByRole('button', { name: /send question/i }));
   }
 
+  it('shows the ambient field only before the first question', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
+    const user = await openChat();
+
+    const ambient = screen.getByTestId('chat-ambient');
+    expect(ambient.querySelectorAll('.chat__ambient-field')).toHaveLength(5);
+    expect(ambient.querySelectorAll('.chat__ambient-loop')).toHaveLength(3);
+    expect(screen.getByRole('log')).toHaveAttribute('data-empty', 'true');
+
+    await ask(user);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('chat-ambient')).not.toBeInTheDocument();
+      expect(screen.getByRole('log')).toHaveAttribute('data-empty', 'false');
+    });
+  });
+
   it('shows a retryable unavailable state for a 503', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
     const user = await openChat();
@@ -185,9 +202,9 @@ describe('CASPEL AI reports failure honestly', () => {
     // The failure notice must not appear as a message in the transcript: the
     // whole point is that an outage is distinguishable from a reply.
     const log = screen.getByRole('log');
-    // No assistant bubble at all: the assistant never replied, and there is no
-    // scripted greeting standing in for one.
-    expect(log.querySelectorAll('.chat__bubble--assistant')).toHaveLength(0);
+    // No assistant transcript row at all: the assistant never replied, and
+    // there is no scripted greeting standing in for one.
+    expect(log.querySelectorAll('.chat__row--assistant')).toHaveLength(0);
   });
 
   it('distinguishes a rate limit from an outage', async () => {

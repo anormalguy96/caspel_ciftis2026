@@ -89,7 +89,8 @@
     "networkError": "连接在返回答案前中断，请重试。",
     "searching": "正在检索已发布的演示材料",
     "sendLabel": "发送问题",
-    "inputLabel": "向 CASPEL AI 提问"
+    "inputLabel": "向 CASPEL AI 提问",
+    "youLabel": "您"
   },
   "aiEntry": {
     "label": "CASPEL AI",
