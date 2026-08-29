@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { ActionArrow } from './ActionArrow';
 import caspelLogo from '../assets/caspel-logo-horizontal.svg';
 import ciftisLogo from '../assets/ciftis-logo.png';
 
@@ -18,10 +19,19 @@ import ciftisLogo from '../assets/ciftis-logo.png';
 export const Footer: React.FC = () => {
   const { t } = useTranslation();
 
+  /**
+   * Two different questions, previously answered by one flag.
+   *
+   * newTab decides target/rel: a mailto: must NOT open a browser tab.
+   * leaves decides the arrow: a mailto: hands the visitor to a mail client,
+   * so it does leave the experience. The old single `external` flag drove
+   * both and was therefore forced to be wrong about the address — it showed
+   * the stays-here arrow on the one link that departs.
+   */
   const links = [
-    { key: 'website', href: t('footer.website'), label: t('footer.websiteLabel'), external: true },
-    { key: 'email', href: `mailto:${t('footer.email')}`, label: t('footer.email'), external: false },
-    { key: 'linkedin', href: t('footer.linkedin'), label: 'LinkedIn', external: true },
+    { key: 'website', href: t('footer.website'), label: t('footer.websiteLabel'), newTab: true, leaves: true },
+    { key: 'email', href: `mailto:${t('footer.email')}`, label: t('footer.email'), newTab: false, leaves: true },
+    { key: 'linkedin', href: t('footer.linkedin'), label: 'LinkedIn', newTab: true, leaves: true },
   ];
 
   return (
@@ -37,17 +47,19 @@ export const Footer: React.FC = () => {
         </div>
 
         <nav className="site-footer__links" aria-label={t('footer.contactLabel')}>
-          {links.map(({ key, href, label, external }) => (
+          {links.map(({ key, href, label, newTab, leaves }) => (
             <a
               key={key}
               href={href}
               className="site-footer__link u-link"
-              {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
             >
               <span>{label}</span>
-              <span className="site-footer__link-arrow" aria-hidden="true">
-                {external ? '↗' : '→'}
-              </span>
+              <ActionArrow
+                direction={leaves ? 'external' : 'internal'}
+                size="sm"
+                className="site-footer__link-arrow"
+              />
             </a>
           ))}
         </nav>

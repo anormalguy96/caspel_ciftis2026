@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import caspelIcon from '../assets/caspel-icon.svg';
+import { ActionArrow } from './ActionArrow';
 
 interface CaspelAIEntryProps {
   /** Opens the assistant. A question, when given, is the visitor's opening message. */
@@ -34,11 +35,9 @@ export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
   return (
     <section className="ai-entry" aria-labelledby="ai-entry-heading">
       <button type="button" className="ai-entry__prompt" onClick={() => onAsk()}>
+        {/* The same duotone badge the chat header uses, so opening the
+            assistant reads as this card expanding rather than a new surface. */}
         <span className="ai-entry__signal" aria-hidden="true">
-          <span className="ai-entry__signal-glow ai-entry__signal-glow--a" />
-          <span className="ai-entry__signal-glow ai-entry__signal-glow--b" />
-          <span className="ai-entry__signal-loop ai-entry__signal-loop--a" />
-          <span className="ai-entry__signal-loop ai-entry__signal-loop--b" />
           <img src={caspelIcon} alt="" className="ai-entry__icon-img" />
         </span>
 
@@ -51,7 +50,7 @@ export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
 
         <span className="ai-entry__action">
           <span>{t('aiEntry.action')}</span>
-          <span aria-hidden="true">↗</span>
+          <ActionArrow direction="internal" />
         </span>
       </button>
 

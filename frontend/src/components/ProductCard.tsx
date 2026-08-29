@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ProductConfig } from '../types';
 import { trackAnalyticsEvent } from '../services/analytics';
+import { ActionArrow } from './ActionArrow';
 
 interface ProductCardProps {
   product: ProductConfig;
@@ -40,7 +41,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
 
       <span className="card-link__arrow" aria-hidden="true">
         <span className="card-link__arrow-line" />
-        <span>→</span>
+        <ActionArrow direction="internal" />
       </span>
     </Link>
   );

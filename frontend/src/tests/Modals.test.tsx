@@ -164,11 +164,12 @@ describe('CASPEL AI reports failure honestly', () => {
     await user.click(screen.getByRole('button', { name: /send question/i }));
   }
 
-  it('shows the ambient field only before the first question', async () => {
+  it('recedes the ambient field once a conversation starts, rather than swapping canvas', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
     const user = await openChat();
 
     const ambient = screen.getByTestId('chat-ambient');
+    expect(ambient).toHaveAttribute('data-state', 'idle');
     // Three colour fields and three rings. The count is asserted because it is
     // a deliberate budget rather than an aesthetic accident: every one of these
     // is a promoted, blurred compositor layer, and an exhibition phone pays for
@@ -182,7 +183,12 @@ describe('CASPEL AI reports failure honestly', () => {
     await ask(user);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('chat-ambient')).not.toBeInTheDocument();
+      // The layer must NOT disappear. Unmounting it swapped a saturated field
+      // for a differently-coloured light document mid-session, which read as
+      // two products rather than two states of one. It recedes instead, and
+      // its animation pauses so nothing moves behind long-form text.
+      expect(screen.getByTestId('chat-ambient')).toBeInTheDocument();
+      expect(screen.getByTestId('chat-ambient')).toHaveAttribute('data-state', 'receded');
       expect(screen.getByRole('log')).toHaveAttribute('data-empty', 'false');
     });
   });

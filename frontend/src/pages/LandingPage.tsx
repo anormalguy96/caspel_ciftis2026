@@ -7,6 +7,7 @@ import { ProductCard } from '../components/ProductCard';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
 import { Footer } from '../components/Footer';
+import { ActionArrow } from '../components/ActionArrow';
 import { useProducts } from '../config/products';
 import { trackAnalyticsEvent } from '../services/analytics';
 
@@ -90,12 +91,12 @@ export const LandingPage: React.FC = () => {
                 onClick={handleOpenDemo}
               >
                 <span>{t('actions.requestDemo')}</span>
-                <span aria-hidden="true">↗</span>
+                <ActionArrow direction="internal" />
               </button>
 
               <a className="btn btn--secondary cta__btn" href={`mailto:${t('footer.email')}`}>
                 <span>{t('actions.contact')}</span>
-                <span aria-hidden="true">→</span>
+                <ActionArrow direction="external" />
               </a>
             </div>
           </section>

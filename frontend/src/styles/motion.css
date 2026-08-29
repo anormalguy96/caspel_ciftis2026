@@ -80,25 +80,6 @@
   50%      { opacity: 0.55; }
 }
 
-@keyframes aiSignalDriftA {
-  from { transform: translate3d(-3px, -2px, 0) scale(0.9); }
-  to   { transform: translate3d(17px, 12px, 0) scale(1.18); }
-}
-
-@keyframes aiSignalDriftB {
-  from { transform: translate3d(4px, 8px, 0) scale(1.08); }
-  to   { transform: translate3d(-16px, -10px, 0) scale(0.88); }
-}
-
-@keyframes aiSignalLoopA {
-  from { transform: rotate(24deg); }
-  to   { transform: rotate(384deg); }
-}
-
-@keyframes aiSignalLoopB {
-  from { transform: rotate(-48deg) scale(0.8); }
-  to   { transform: rotate(312deg) scale(0.8); }
-}
 
 /* ============================================================
    UTILITY CLASSES
@@ -201,6 +182,41 @@
   background-color: currentColor;
   animation: dotBounce 1.2s var(--ease-both) infinite;
   animation-delay: calc(var(--i, 0) * 140ms);
+}
+
+/* ── Assistant overlay entrance ───────────────────────────────
+   The landing card is the doorway, so the panel grows from the
+   edge nearest that card rather than sliding up like a generic
+   sheet. transform-origin does the matching: a true
+   shared-element transition would need measured geometry and
+   would break the moment the card scrolls out of view, whereas
+   a matched origin survives every layout.
+
+   Scale is deliberately shallow. A large scale reads as a zoom
+   effect; 0.985 reads as the surface arriving.
+   ============================================================ */
+@keyframes chatPanelIn {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes chatPanelOut {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: scale(0.99); }
+}
+
+.modal--chat.u-panel {
+  transform-origin: left center;
+  animation: chatPanelIn var(--dur-panel) var(--ease-out) both;
+}
+
+.modal--chat.u-panel[data-state='closing'] {
+  animation: chatPanelOut var(--dur-exit) var(--ease-in) both;
+}
+
+@media (max-width: 700px) {
+  /* Full-screen sheet: the card sits above it, so grow from the top. */
+  .modal--chat.u-panel { transform-origin: top center; }
 }
 
 /* ============================================================
