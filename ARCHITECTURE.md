@@ -44,29 +44,56 @@ This document details the software architecture, data models, infrastructure top
 
 ## 2. Core Subsystems
 
-### 2.1. Page A — Exhibition Display / Kiosk (`/ciftis/display`)
+Routes below are written **relative to the deployment base**. The public prefix
+belongs to `VITE_APP_BASE_PATH` and the host vhost, never to the application:
+`/display` is served at `https://ciftis.caspel.com/display` in Mode A and at
+`https://caspel.com/ciftis/display` in Mode B. See §2.6.
+
+### 2.1. Page A — Exhibition Display / Kiosk (`/display`)
 - **Intent**: High-resolution, unattended touch screen situated at the physical CASPEL exhibition booth in Beijing.
-- **Visual State**: Ambient gradient pulse and technology animation.
-- **Interaction**: Tap anywhere to trigger modal QR code.
-- **Auto-Reset**: Inactivity timer (`VITE_DISPLAY_RESET_SECONDS`, default 25s) automatically returns screen to ambient visual loop if visitor leaves.
-- **Local QR Engine**: Generates QR code client-side using pure SVG without making outbound calls to external generator APIs.
+- **Visual State**: A silent, muted, looping local MP4 (`frontend/src/assets/caspel.mp4`) filling the viewport. No external media.
+- **Interaction**: Tap anywhere to pause the film and raise a modal QR code.
+- **Auto-Reset**: Inactivity timer (`VITE_DISPLAY_RESET_SECONDS`, default 25s) dismisses the QR and resumes the film if the visitor leaves.
+- **Local QR Engine**: Generates the QR client-side as inline SVG, with no call to an external generator. The destination is the validated `VITE_PUBLIC_URL`, never the current URL, so it can never encode `/display`.
+- **Failure States**: Autoplay refused shows a touch-to-start prompt; a film that cannot load shows the QR and the readable address directly.
 
-### 2.2. Page B — Mobile Landing Page (`/ciftis`)
+### 2.2. Page B — Mobile Landing Page (`/`)
 - **Intent**: Mobile presentation hub accessed when visitors scan the physical booth QR code.
-- **Information Hierarchy**:
-  1. CASPEL Brand Header & Online Indicator
-  2. Hero Tagline ("Explore Caspel Solutions")
-  3. Four Core Solution Cards (*Corporate*, *ERP*, *PMS*, *IRISSEA*)
-  4. Presentation Access (In-browser viewer & direct download)
-  5. CASPEL AI Assistant bottom-sheet launcher
-  6. Request a Demo lead capture section
-  7. Corporate Footer & Social Links
+- **Information Hierarchy** (ordered so the first 390×844 screen carries everything a visitor needs):
+  1. CASPEL and CIFTIS marks, plus the language selector
+  2. Event kicker and a factual page-purpose statement
+  3. **CASPEL AI entry** — a real button in the page flow, complete within the first viewport, never fixed or floating
+  4. Four solution rows (*Corporate*, *ERP*, *PMS*, *IRISSEA*), all names visible in the first viewport at 390×844
+  5. Request a Demo and contact actions
+  6. Corporate footer
 
-### 2.3. CASPEL AI — Grounded RAG Assistant (`/api/chat`)
-- **Knowledge Sources**: Slide presentations parsed page-by-page.
-- **Retrieval Engine**: Embeddings computed with `text-embedding-004`, indexed with `pgvector` in PostgreSQL using cosine distance `<=>`.
-- **System Guardrails**: Explicit strict system instructions preventing hallucinations regarding prices, clients, unverified claims, or off-topic information.
-- **Source Citations**: Returns exact document names and slide page numbers to the client for verifiable trust.
+### 2.3. Product presentation (`/product/:slug`)
+- **Canonical route.** Selecting a product opens the document itself; there is no intermediate summary step.
+- **Legacy compatibility**: `/presentation/:slug` redirects to `/product/:slug` with `replace` history semantics, preserving search and hash, and emits no analytics of its own.
+- **States, kept deliberately distinct**: manifest loading; approved and available (viewer mounts); unavailable (honest "not yet published"); manifest/API error (retryable, never presented as unpublished); PDF render failure (retry plus download fallback).
+- **Analytics**: `PRODUCT_VIEW` fires exactly once per product entered; `PRESENTATION_VIEW` fires exactly once and only when an approved viewer actually mounts.
+- **Availability** is decided by the backend's approved registry (exact size, SHA256 and page count), never by file presence.
+
+### 2.4. CASPEL AI — Grounded RAG Assistant (`/api/chat`)
+- **Knowledge Sources**: Approved slide presentations parsed page-by-page.
+- **Retrieval Engine**: Embeddings computed with `gemini-embedding-2` (768 dimensions), indexed with `pgvector` in PostgreSQL using cosine distance `<=>`. Generation uses `gemini-3.5-flash-lite`. Both are environment-selected with no automatic fallback.
+- **Response language** is resolved server-side, before the provider is called, by `app/rag/language.py`: an explicit request in the message wins; otherwise the language the question is written in (English, Simplified Chinese, Azerbaijani); otherwise the browser UI locale, but only for input too short to classify; otherwise English. `ChatRequest.ui_locale` is a hint, never an override.
+- **No-context behaviour**: when retrieval returns nothing, a reviewed refusal is returned in the resolved language and **the provider is not called at all**.
+- **Source citations are server-owned** (`app/rag/citations.py`). Retrieved records are labelled `SOURCE_1`, `SOURCE_2`, … and the model may reference only those identifiers. Every identifier it returns is validated against what was actually retrieved, then resolved to the server's own document title and page number. An identifier the model invents resolves to nothing and is dropped, so a fabricated page can never reach a visitor.
+- **Prompt-injection posture**: retrieved text and the visitor message are fenced and labelled as data. The system prompt forbids following instructions found inside them and forbids disclosing its own configuration.
+- **Failure honesty**: a provider failure is an HTTP 503, never a 200 carrying an apology, and is never written to the transcript as an answer.
+
+### 2.5. Interface localization
+- English and Simplified Chinese resources are **bundled into the build**. Nothing is fetched at runtime and no translation service is contacted.
+- **Precedence**: a stored choice (`caspel_ciftis_locale`) → `navigator.languages` in the visitor's own order (`zh`, `zh-CN`, `zh-Hans` resolve to Simplified Chinese; Traditional Chinese deliberately does not) → English.
+- Switching updates the page live without a reload and rewrites `<html lang>` and the document metadata.
+- Product slugs, stream URLs, download filenames, document titles and page numbers are identifiers and are never translated.
+
+### 2.6. Deployment modes and readiness
+- **Mode A** — `https://ciftis.caspel.com/`, built with `VITE_APP_BASE_PATH=/`.
+- **Mode B** — `https://caspel.com/ciftis/`, built with `VITE_APP_BASE_PATH=/ciftis/`, merged into the existing corporate vhost, which strips the prefix exactly once.
+- The container nginx is **prefix-agnostic** and serves the SPA at its own root in both modes. Legacy `/ciftis` compatibility lives in the mode-specific host configuration, not in the container.
+- `/api/ready` reports exactly four checks: **database**, **vector extension**, **live AI provider**, **approved corpus**. It returns 503 unless all four pass.
 
 ---
 

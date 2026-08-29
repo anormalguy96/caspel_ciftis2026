@@ -95,7 +95,6 @@ POSTGRES_PORT=5432
 GEMINI_API_KEY=<PASTE_THE_PROJECT_GEMINI_API_KEY>
 GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
-ALLOW_MOCK_RAG=false
 
 # Deployment mode — see section 0. Mode A shown; for Mode B use
 #   VITE_APP_BASE_PATH=/ciftis/

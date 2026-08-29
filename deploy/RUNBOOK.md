@@ -96,8 +96,7 @@ Also set:
 
 | Variable | Notes |
 |---|---|
-| `APP_ENV=production` | The backend refuses to start unless the password is 16+ characters, `ALLOW_MOCK_RAG` is false and a Gemini key is set |
-| `ALLOW_MOCK_RAG=false` | Must stay false. `/api/ready` refuses to report ready while it is on |
+| `APP_ENV=production` | The backend refuses to start unless the password is 16+ characters and a Gemini key is set |
 | `TRUSTED_PROXY_COUNT=1` | Number of proxies in front of the app; the rate limiter reads that entry of `X-Forwarded-For` so a client cannot forge its own identity |
 | `GEMINI_API_KEY` | Without it CASPEL AI reports itself unavailable; the rest of the hub works |
 | *(QR target)* | Derived from `VITE_PUBLIC_URL`; there is no separate variable |
@@ -226,7 +225,7 @@ change.
 Work through this **before the QR code goes to print** — the printed URL cannot
 be changed afterwards (`document.md` §24, §35).
 
-- [ ] `https://<hostname>/ciftis` loads; `http://` redirects with `301`
+- [ ] The public URL loads (`https://ciftis.caspel.com/` in Mode A, `https://caspel.com/ciftis/` in Mode B); `http://` redirects to `https://`
 - [ ] SSL Labs grade A or better
 - [ ] All four cards appear; published decks open and download
 - [ ] PDF scroll **and pinch-zoom on a real iPhone and a real Android phone** — not devtools
@@ -234,10 +233,51 @@ be changed afterwards (`document.md` §24, §35).
 - [ ] Both modals close on Escape, trap Tab, and return focus to the button that opened them
 - [ ] CASPEL AI answers with cited sources; if the provider is down it shows a retryable failure, never an apology presented as an answer
 - [ ] No horizontal scrolling at 320, 360, 375, 390, 414 and 430 px
-- [ ] `curl -s https://<hostname>/api/ready` reports `"status":"ready"` with all five checks true
-- [ ] `/ciftis/admin` and `/ciftis/status` do not exist, and `/api/admin/*` returns 404
+- [ ] `curl -s https://<hostname>/api/ready` reports `"status":"ready"` with all four checks true (`database`, `vector_extension`, `live_ai_provider`, `approved_corpus`)
+- [ ] No admin or status route exists: those paths fall through to the SPA not-found page, and `/api/admin/*` returns **404** (not 401)
 - [ ] **Load the production URL from a device on a Chinese network**
 - [ ] QR code scans to the correct URL from a printed sample
+- [ ] **Simplified Chinese wording approved by CASPEL** — see §9a. This is a blocking sign-off, not a formality.
+
+## 9a. Simplified Chinese review — OUTSTANDING, blocking
+
+The interface ships in English and Simplified Chinese. **The Chinese resource
+(`frontend/src/locales/zh-CN.json`) is machine-drafted and has not been
+reviewed by a fluent speaker.**
+
+What has been verified automatically, and passes:
+
+- key and type parity with the English resource (no missing, extra, empty or
+  wrong-typed entries);
+- interpolation placeholders identical across both locales;
+- protected names preserved in translated copy — CASPEL, Caspel ERP,
+  Caspel PMS, IRISSEA, LRIT, CIFTIS, document titles, filenames and contact
+  details are never translated;
+- layout at 320, 360, 375, 390, 414, 430, 768, 820, 1280 and 1440 px with no
+  clipping and no horizontal overflow;
+- live language switching, persistence, and `<html lang>`.
+
+None of that is a check on whether the Chinese *reads correctly*. Automated
+parity proves a string exists, not that it says the right thing.
+
+**Required before production approval**
+
+A fluent Simplified Chinese speaker from, or approved by, CASPEL must read and
+approve every visitor-facing string, with particular attention to product
+descriptors, availability wording, the assistant's scope and refusal messages,
+and the demo-request form.
+
+Until that approval is recorded:
+
+- do not describe the Chinese review as completed, in any status report;
+- do not sign off production deployment;
+- treat the Chinese interface as a draft, even though it is technically
+  functional and passes every automated check.
+
+The review is a wording approval only. It requires no code change, and
+correcting a string is an edit to `zh-CN.json` plus a rebuild.
+
+---
 
 ## 10. Operating during the exhibition
 

@@ -65,11 +65,54 @@ Key environment variables:
 | `GEMINI_API_KEY` | Server-side Gemini API key; required for CASPEL AI | *(none)* |
 | `GEMINI_CHAT_MODEL` | Chat generation model. Environment-selected; no automatic fallback, so a failure on it is reported as an outage rather than answered by a substitute | `gemini-3.5-flash-lite` |
 | `GEMINI_EMBEDDING_MODEL` | Embedding model | `gemini-embedding-2` |
-| `ALLOW_MOCK_RAG` | Local development only. `/api/ready` refuses to report ready while true | `false` |
 | `TRUSTED_PROXY_COUNT` | Proxies in front of the app; the rate limiter reads that entry of `X-Forwarded-For`, so a client cannot forge its own identity | `1` |
 | `VITE_APP_BASE_PATH` | Where the SPA is mounted: `/` for a dedicated subdomain, `/ciftis/` beneath the corporate site | `/` |
 | `VITE_PUBLIC_URL` | **Required.** The absolute public address, baked in at build time for canonical, Open Graph and the QR code. The build **fails** if it is missing, loopback, non-https, or disagrees with `VITE_APP_BASE_PATH` | *(none)* |
 | `VITE_DISPLAY_RESET_SECONDS`| Kiosk inactivity reset timeout (seconds)| `25` |
+
+### Interface language
+
+The hub ships in English and Simplified Chinese. Both locale resources are
+bundled into the build; nothing is fetched at runtime and no translation
+service is contacted.
+
+The language is chosen, highest precedence first:
+
+1. a stored choice from the header's language control (`caspel_ciftis_locale`);
+2. the browser's own `navigator.languages`, in the order the visitor set them
+   (`zh`, `zh-CN` and `zh-Hans` resolve to Simplified Chinese; Traditional
+   Chinese deliberately does not, and falls through);
+3. English.
+
+Switching language updates the page live, without a reload, and rewrites
+`<html lang>` so assistive technology announces the right language.
+
+> The Simplified Chinese copy is machine-drafted and **has not yet had fluent
+> human review**. Treat that review as outstanding before production.
+
+### CASPEL AI language behaviour
+
+The assistant answers in the language the visitor used. Resolution happens on
+the server, before the model is called:
+
+1. an explicit request in the message ("answer in Chinese", "请用英文回答") wins,
+   whatever language it is written in;
+2. otherwise the language the question is clearly written in — English,
+   Simplified Chinese or Azerbaijani;
+3. for input too short to classify ("PMS"), the browser's UI locale is used as
+   a hint;
+4. otherwise English.
+
+The UI locale is only ever a tie-breaker. An English question asked in a
+Chinese interface is answered in English.
+
+Citations are owned by the server. Retrieved records are labelled `SOURCE_1`,
+`SOURCE_2`, … and the model may reference only those identifiers; document
+titles and page numbers are then filled in from the server's own copy. An
+identifier the model invents resolves to nothing and is dropped, so a
+fabricated page number cannot reach a visitor. When retrieval finds nothing,
+a reviewed refusal is returned in the resolved language and the provider is
+not called at all.
 
 ---
 
