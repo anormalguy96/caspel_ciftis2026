@@ -1,104 +1,43 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import en from '../locales/en.json';
+import { useTranslation } from 'react-i18next';
+import caspelLogo from '../assets/caspel-logo-horizontal.svg';
+import ciftisLogo from '../assets/ciftis-logo.png';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
+/**
+ * CASPEL leads; the CIFTIS mark accompanies it.
+ *
+ * The event logo is the artwork supplied for the exhibition, bundled locally
+ * rather than hotlinked, so the stand does not depend on the venue network
+ * reaching a third-party host. CASPEL stays first and larger: this is CASPEL's
+ * hub at CIFTIS, not a CIFTIS site.
+ *
+ * The width/height on each image are the file's own intrinsic dimensions, not
+ * the size it renders at. The browser uses them only for the aspect ratio it
+ * reserves before the image arrives; CSS sets the real size. Passing the
+ * rendered box instead reserves the wrong shape and the page jumps on load.
+ *
+ * The event line is hidden on narrow screens rather than clipped: the same
+ * text already leads the hero, and the language control must never be squeezed
+ * out to make room for a duplicate.
+ */
 export const Header: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
-    <header style={styles.header}>
-      <div className="container" style={styles.headerInner}>
-        <Link to="/ciftis" style={styles.brandLink}>
-          <div style={styles.logoBadge}>
-            <span style={styles.logoIcon}>C</span>
-          </div>
-          <div style={styles.brandTextGroup}>
-            <span style={styles.brandName}>{en.brand.name}</span>
-            <span style={styles.brandTagline}>{en.brand.exhibition}</span>
-          </div>
+    <header className="site-header">
+      <div className="container site-header__inner">
+        <Link to="/" className="site-header__brand" aria-label={t('brand.homeLabel')}>
+          <img src={caspelLogo} alt="CASPEL" className="site-header__logo" width={210} height={50} loading="eager" />
+          <span className="site-header__logo-divider" aria-hidden="true" />
+          <img src={ciftisLogo} alt="CIFTIS 2026" className="site-header__ciftis-logo" width={297} height={231} loading="eager" />
         </Link>
-        <div style={styles.pillBadge}>
-          <span style={styles.onlineDot}></span>
-          <span style={styles.hubText}>{en.brand.tagline}</span>
-        </div>
+
+        <p className="site-header__event">{t('brand.exhibition')}</p>
+
+        <LanguageSwitcher className="site-header__lang" />
       </div>
     </header>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  header: {
-    width: '100%',
-    padding: '16px 0',
-    backgroundColor: 'rgba(7, 12, 24, 0.85)',
-    backdropFilter: 'blur(12px)',
-    borderBottom: '1px solid var(--color-border)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 40,
-  },
-  headerInner: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brandLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    textDecoration: 'none',
-  },
-  logoBadge: {
-    width: '38px',
-    height: '38px',
-    borderRadius: '10px',
-    background: 'var(--color-accent-gradient)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 0 15px rgba(0, 194, 255, 0.35)',
-  },
-  logoIcon: {
-    fontSize: '22px',
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: '-0.5px',
-  },
-  brandTextGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  brandName: {
-    fontSize: '18px',
-    fontWeight: '800',
-    letterSpacing: '1px',
-    color: '#ffffff',
-    lineHeight: 1.1,
-  },
-  brandTagline: {
-    fontSize: '11px',
-    color: 'var(--color-text-secondary)',
-    fontWeight: '500',
-    letterSpacing: '0.5px',
-  },
-  pillBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '6px 12px',
-    borderRadius: 'var(--radius-full)',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-  },
-  onlineDot: {
-    width: '7px',
-    height: '7px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--color-success)',
-    boxShadow: '0 0 6px var(--color-success)',
-  },
-  hubText: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: 'var(--color-text-secondary)',
-    letterSpacing: '0.3px',
-  },
 };

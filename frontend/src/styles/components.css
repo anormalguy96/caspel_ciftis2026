@@ -1,0 +1,1064 @@
+/* ============================================================
+   COMPONENT LAYER — CASPEL / CIFTIS 2026
+
+   Real CSS classes, not React inline style objects. Inline styles
+   cannot express :hover, :active, :focus-visible, media queries or
+   prefers-reduced-motion, so anything built with them is stuck
+   without interaction states.
+
+   Every value comes from tokens.css / motion.css.
+   ============================================================ */
+
+/* ── Buttons ─────────────────────────────────────────────────
+   One padding rhythm, one radius, one height. Variants change
+   colour only — never geometry — so buttons stay aligned wherever
+   they appear. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 48px;
+  padding: 0 var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    border-color     var(--dur-micro) var(--ease-both),
+    color            var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:not(:disabled):active {
+  transform: scale(0.985);
+}
+
+.btn--primary {
+  background-color: var(--color-dark);
+  color: #ffffff;
+}
+
+/* CASPEL green marks the single most important action on a screen.
+   Used everywhere it stops meaning anything. */
+.btn--accent {
+  background-color: var(--color-primary);
+  color: #063044;
+}
+
+.btn--secondary {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.btn--ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+/* Sits on the dark closing panel, where a white-on-white secondary
+   button would vanish. */
+.btn--onDark {
+  background-color: transparent;
+  border-color: var(--color-dark-border);
+  color: #ffffff;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--onDark:focus-visible,
+.btn--primary:focus-visible {
+  outline-color: #ffffff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:not(:disabled):hover  { background-color: var(--color-dark-soft); }
+  .btn--accent:not(:disabled):hover   { background-color: var(--color-primary-hover); }
+  .btn--secondary:not(:disabled):hover {
+    border-color: var(--color-border-hover);
+    background-color: var(--color-surface-card-hover);
+  }
+  .btn--ghost:not(:disabled):hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-elevated);
+  }
+  .btn--onDark:not(:disabled):hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ── Site header ─────────────────────────────────────────────
+   Solid, not translucent. A blurred semi-transparent bar reads as
+   template styling and fails against light presentation pages. */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 64px;
+}
+
+.site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  /* 44px tap target without padding the logo itself out of proportion. */
+  min-height: 44px;
+}
+
+.site-header__logo {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+
+.site-header__logo-divider {
+  display: block;
+  width: 1px;
+  height: 22px;
+  background-color: var(--color-border);
+  margin: 0 4px;
+}
+
+.site-header__ciftis-logo {
+  display: block;
+  height: 35px;
+  width: auto;
+  object-fit: contain;
+  margin-left: 3px;
+}
+
+/* CIFTIS is named, not badged. See components/Header.tsx. */
+.site-header__event {
+  flex-shrink: 0;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+  .site-header__event {
+    padding-left: var(--space-sm);
+    font-size: 12px;
+  }
+  .site-header__logo { height: 26px; }
+}
+
+@media (min-width: 768px) {
+  .site-header__inner { min-height: 76px; }
+  .site-header__logo { height: 36px; }
+  .site-header__event { font-size: 14px; }
+}
+
+/* ── Site footer ─────────────────────────────────────────── */
+
+.site-footer {
+  width: 100%;
+  margin-top: auto;
+  padding: var(--space-xl) 0;
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  text-align: center;
+}
+
+.site-footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.site-footer__logos {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.site-footer__logo {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+.site-footer__logo-divider {
+  display: block;
+  width: 1px;
+  height: 18px;
+  background-color: var(--color-border);
+  margin: 0 4px;
+}
+
+.site-footer__ciftis-logo {
+  display: block;
+  height: 29px;
+  width: auto;
+  object-fit: contain;
+  margin-left: 3px;
+}
+
+.site-footer__event {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm) var(--space-lg);
+}
+
+.site-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  /* Full 44px target; the visible text stays 14px. */
+  min-height: 44px;
+  padding: 0 var(--space-xs);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.site-footer__copyright {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+@media (min-width: 900px) {
+  .site-footer__inner {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .site-footer__brand {
+    align-items: flex-start;
+  }
+}
+
+/* ── Hero ────────────────────────────────────────────────── */
+
+.hero {
+  padding: var(--space-2xl) 0 var(--space-xl);
+}
+
+.hero__inner {
+  max-width: var(--measure);
+}
+
+.hero__title {
+  font-size: clamp(30px, 5vw, 46px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-dark);
+  text-wrap: balance;
+}
+
+.hero__subtitle {
+  max-width: 58ch;
+  margin-top: var(--space-md);
+  font-size: clamp(16px, 1.4vw, 18px);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding: var(--space-3xl) 0 var(--space-2xl);
+  }
+}
+
+/* ── Landing ─────────────────────────────────────────────── */
+
+.landing {
+  flex: 1;
+  padding-bottom: var(--space-3xl);
+}
+
+.landing__section {
+  margin-bottom: var(--space-2xl);
+}
+
+.section-label {
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.landing__cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+
+@media (min-width: 720px) {
+  .landing__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+  }
+}
+
+/* ── Product card ────────────────────────────────────────── */
+
+.card-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  /* Comfortably tappable at every width. */
+  min-height: 76px;
+  padding: var(--space-md) var(--space-lg);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.card-link__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-link__name {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--color-text);
+}
+
+.card-link__descriptor {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+/* ── AI banner ───────────────────────────────────────────── */
+
+.ai-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-lg);
+  margin-bottom: var(--space-2xl);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.ai-banner__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-light);
+  border: 1px solid rgba(81, 183, 72, 0.25);
+  color: var(--color-primary-ink);
+}
+
+.ai-banner__caspel-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.ai-banner__text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ai-banner__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.ai-banner__subtitle {
+  margin-top: 2px;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.ai-banner__btn {
+  flex-shrink: 0;
+}
+
+/* ── Closing CTA ─────────────────────────────────────────── */
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-2xl) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-dark);
+}
+
+.cta__text {
+  max-width: 54ch;
+}
+
+.cta__title {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.cta__subtitle {
+  margin-top: var(--space-sm);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-dark-text-secondary);
+}
+
+.cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.cta__btn {
+  flex: 1 1 240px;
+}
+
+.cta .btn--primary {
+  background-color: var(--color-primary);
+  color: #063044;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cta .btn--primary:not(:disabled):hover {
+    background-color: #67c95e;
+  }
+}
+
+@media (min-width: 900px) {
+  .cta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xl);
+    padding: var(--space-2xl);
+  }
+
+  .cta__actions {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+
+  .cta__btn {
+    flex: 0 0 auto;
+  }
+}
+
+/* ── PDF viewer ──────────────────────────────────────────────
+   Pages render to canvas so the experience is identical on iOS
+   Safari, which will not render a PDF inside an iframe. */
+
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.pdf-viewer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pdf-viewer__counter {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums; /* stops the width jittering while scrolling */
+  color: var(--color-text-secondary);
+}
+
+.pdf-viewer__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.pdf-viewer__ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    border-color     var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+.pdf-viewer__ctrl:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pdf-viewer__ctrl:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pdf-viewer__ctrl:not(:disabled):hover {
+    border-color: var(--color-border-hover);
+    background-color: var(--color-surface-card-hover);
+  }
+}
+
+.pdf-viewer__divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-xs);
+  background-color: var(--color-border);
+}
+
+.pdf-viewer__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Zoomed pages grow inside this scroller rather than overflowing the app. */
+  overflow-x: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  /* Allow native pinch-to-zoom on the pages while keeping vertical panning smooth. */
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.pdf-page {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  /* A 24MB deck on a 1440px screen should not render slides two feet wide. */
+  max-width: 960px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.pdf-page__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+
+.pdf-page__skeleton {
+  position: absolute;
+  inset: 0;
+}
+
+.pdf-viewer__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-md);
+}
+
+.pdf-viewer__progress {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+
+.pdf-viewer__progress-bar {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: inherit;
+  transition: width var(--dur-ui) var(--ease-out);
+}
+
+.pdf-viewer__loading-text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.pdf-viewer__fallback {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.pdf-viewer__fallback-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.pdf-viewer__fallback-text {
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.pdf-viewer__fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ============================================================
+   Language selector
+   ------------------------------------------------------------
+   Two persistent options, both visible. The active one is not
+   signalled by colour alone: it carries weight, a solid ink
+   surface and aria-pressed, so it survives greyscale, low
+   vision and a screen reader equally.
+   ============================================================ */
+.lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.lang-switch__option {
+  min-height: 32px;
+  padding: 0 var(--space-md);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.lang-switch__option:hover {
+  color: var(--color-text);
+  background: var(--color-surface-elevated);
+}
+
+.lang-switch__option[aria-pressed='true'] {
+  background: var(--color-dark);
+  color: #fff;
+  font-weight: 600;
+}
+
+.lang-switch__option:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 2px;
+}
+
+/* The header is the one place the control must never be squeezed out. */
+.site-header__lang {
+  flex: 0 0 auto;
+}
+
+/* ============================================================
+   Hero kicker
+   ============================================================ */
+.hero__kicker {
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   CASPEL AI entry
+   ------------------------------------------------------------
+   A console prompt in the page flow, not a floating widget and
+   not a full-width marketing banner. It has to be complete
+   inside the first 390x844 screen while leaving room for all
+   four products underneath, so it stays one row tall on mobile.
+   ============================================================ */
+.ai-entry {
+  margin: 0 0 var(--space-xl);
+}
+
+.ai-entry__prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.ai-entry__prompt:hover {
+  border-color: var(--color-border-hover);
+  border-left-color: var(--color-primary);
+  background: var(--color-surface-card-hover);
+}
+
+.ai-entry__prompt:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 2px;
+}
+
+.ai-entry__icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+
+.ai-entry__icon-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.ai-entry__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-entry__label {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ai-entry__scope {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.ai-entry__action {
+  flex: 0 0 auto;
+  padding: 6px var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ai-entry__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-left: 2px;
+}
+
+.ai-entry__suggestions-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.ai-entry__suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.ai-entry__suggestion {
+  min-height: 32px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.ai-entry__suggestion:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
+}
+
+.ai-entry__suggestion:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  /* The action label is redundant once the whole row is the button, and
+     dropping it keeps the prompt to a single line at 390px. */
+  .ai-entry__action {
+    display: none;
+  }
+
+  .ai-entry__suggestions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ============================================================
+   Viewer context bar
+   ------------------------------------------------------------
+   Sticky beneath the header, never fixed over the document. It
+   must not cover the first lines of a slide, so it participates
+   in layout rather than floating above it.
+   ============================================================ */
+.viewer-bar__identity {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.viewer-bar__name {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-bar__descriptor {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-bar__meta {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.viewer-bar__ai-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* Every primary control in this bar clears the 44px target minimum. */
+.viewer-bar__back,
+.viewer-bar__ai,
+.viewer-bar__download {
+  min-height: 44px;
+}
+
+@media (max-width: 700px) {
+  .viewer-bar__inner {
+    flex-wrap: wrap;
+    row-gap: var(--space-sm);
+    /* Notched phones in landscape put the bar under the sensor housing. */
+    padding-left: max(var(--space-md), env(safe-area-inset-left));
+    padding-right: max(var(--space-md), env(safe-area-inset-right));
+  }
+
+  .viewer-bar__descriptor {
+    display: none;
+  }
+
+  .viewer-bar__meta {
+    order: 3;
+  }
+
+  .viewer-bar__actions {
+    order: 4;
+    margin-left: auto;
+  }
+}
+
+/* ============================================================
+   Narrow-header behaviour and touch targets
+   ------------------------------------------------------------
+   At 320-430px the brand, the event line and the language
+   control cannot share one row: measured at 320px the switcher
+   ran 26px past the viewport edge.
+
+   The event line is dropped rather than the language control,
+   because the same text already leads the hero, and below 480px
+   the header wraps to a deliberate second row so both language
+   labels stay fully readable. Abbreviating "简体中文" to an icon
+   would hide the control from exactly the visitor who needs it.
+   ============================================================ */
+@media (max-width: 560px) {
+  .site-header__inner {
+    flex-wrap: wrap;
+    row-gap: var(--space-sm);
+    padding-bottom: var(--space-sm);
+  }
+
+  .site-header__event {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header__brand {
+    flex: 1 1 100%;
+  }
+
+  /* Second row, aligned to the start so it reads as a control rather
+     than as a stray element pushed into a corner. */
+  .site-header__lang {
+    flex: 0 0 auto;
+    margin-right: auto;
+  }
+}
+
+/* WCAG 2.2 target-size sets a 24px floor; 44px is the size a finger
+   actually needs on a device held at a stand, and the spec fixes it as the
+   minimum for primary controls. The language control is primary: it is the
+   only way a visitor who cannot read the current language can fix that. */
+.lang-switch__option {
+  min-height: 44px;
+}
+
+.ai-entry__suggestion {
+  min-height: 44px;
+}
+
+/* ============================================================
+   First-viewport budget at 390x844
+   ------------------------------------------------------------
+   All four products must be reachable without scrolling past a
+   control, and touch targets must stay at 44px. Both cannot be
+   paid for out of the same 844px, so the suggestions are the
+   thing that goes: the specification allows them only "if they
+   fit without displacing the product list", and measured at
+   390x844 they displaced the fourth product.
+
+   The suggestions remain available inside the assistant itself,
+   where there is room for three of them.
+   ============================================================ */
+@media (max-width: 480px) {
+  .ai-entry__suggestions {
+    display: none;
+  }
+
+  .ai-entry {
+    margin-bottom: var(--space-lg);
+  }
+
+  .hero__inner {
+    padding-top: var(--space-lg);
+    padding-bottom: var(--space-md);
+  }
+
+  .hero__kicker {
+    margin-bottom: var(--space-xs);
+  }
+}

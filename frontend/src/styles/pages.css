@@ -1,0 +1,360 @@
+/* ============================================================
+   PAGE LAYER — CASPEL / CIFTIS 2026
+
+   Mobile-first. The base rules target a 320px phone; the
+   breakpoints widen an already-working layout into a real
+   enterprise desktop composition rather than a stretched column.
+   ============================================================ */
+
+/* ── Shared page shell ───────────────────────────────────── */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* svh accounts for iOS Safari's collapsing toolbar. */
+  min-height: 100svh;
+  background-color: var(--color-bg);
+}
+
+.page__main {
+  flex: 1;
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-3xl);
+}
+
+.page--viewer {
+  /* The viewer owns its own scrolling, so the shell must not also scroll. */
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.route-fallback {
+  display: flex;
+  flex: 1;
+  min-height: 60vh;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* ── Product page ────────────────────────────────────────── */
+
+.product__back {
+  margin-bottom: var(--space-lg);
+}
+
+.product__back-btn {
+  padding-left: var(--space-sm);
+  margin-left: calc(var(--space-sm) * -1);
+}
+
+.product__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.product__header {
+  margin-bottom: var(--space-lg);
+}
+
+.product__title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--color-dark);
+  text-wrap: balance;
+}
+
+.product__descriptor {
+  margin-top: var(--space-xs);
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.product__overview {
+  padding: var(--space-lg);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.product__summary {
+  max-width: var(--measure);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.product__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.product__preview {
+  padding: var(--space-lg);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.product__preview-doc {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.product__preview-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.product__preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.product__preview-file {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  /* Filenames are long; wrap instead of forcing a horizontal scrollbar. */
+  overflow-wrap: anywhere;
+}
+
+.product__preview-pages {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.product__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.product__actions-skeleton {
+  height: 48px;
+}
+
+.product__secondary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+
+/* ── Presentation viewer page ────────────────────────────── */
+
+.viewer-bar {
+  /* Sticky, never fixed. A fixed bar sits on top of the document and hides
+     the first lines of whichever slide the visitor scrolls to; sticky keeps
+     it in the flow so the page reserves its height. It sits below the header
+     in the layer order for the same reason. */
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky-toolbar);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  /* Notched phones in landscape put the bar under the sensor housing. */
+  padding-top: env(safe-area-inset-top);
+}
+
+.viewer-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.viewer-bar__back {
+  min-width: 0;
+  padding-left: var(--space-sm);
+  margin-left: calc(var(--space-sm) * -1);
+}
+
+.viewer-bar__back span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-bar__download {
+  flex-shrink: 0;
+  padding: 0 var(--space-md);
+  font-size: 14px;
+}
+
+.viewer-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
+}
+
+.viewer-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.viewer-meta__file {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-meta__pages {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-status {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.viewer-status__block {
+  flex: 1;
+  min-height: 320px;
+}
+
+.viewer-status--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-2xl) var(--space-md);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.viewer-status__icon {
+  display: inline-flex;
+  color: var(--color-error);
+}
+
+.viewer-status__title {
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.viewer-status__text {
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+.viewer-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+/* ── 404 ─────────────────────────────────────────────────── */
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  text-align: center;
+  padding-top: var(--space-3xl);
+}
+
+.not-found__code {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.not-found__title {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--color-dark);
+  text-wrap: balance;
+}
+
+.not-found__text {
+  max-width: 48ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+}
+
+/* ── Breakpoints ─────────────────────────────────────────
+   Everything above already works at 320px. These widen the
+   composition rather than only adding padding. */
+
+@media (min-width: 560px) {
+  .product__secondary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .page__main {
+    padding-top: var(--space-xl);
+  }
+
+  /* Detail column plus a sticky action rail: the two things a visitor
+     came for — read about it, then view or download it — stay visible
+     together instead of the actions sitting below the fold. */
+  .product__layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--space-2xl);
+  }
+
+  .product__aside {
+    position: sticky;
+    top: calc(76px + var(--space-lg));
+  }
+
+  .product__secondary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left column of the product layout; the aside is the right rail. */
+.product__primary {
+  min-width: 0;
+}
+
+.route-fallback__text {
+  font-weight: 500;
+}

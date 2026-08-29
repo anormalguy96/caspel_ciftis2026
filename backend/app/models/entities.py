@@ -61,9 +61,20 @@ class Document(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(255), nullable=False)
-    source_type = Column(String(50), default="pdf", nullable=False)
     source_path = Column(String(500), nullable=False)
     product = Column(String(50), nullable=True)
+
+    # SHA256 of the exact file this corpus was built from. Readiness compares it
+    # against the approved digests, so a knowledge base built from a replaced or
+    # recompressed deck cannot pass as the approved one.
+    source_sha256 = Column(String(64), nullable=True, index=True)
+
+    # Extraction coverage, recorded at ingestion. A chunk count alone cannot
+    # distinguish a fully indexed deck from one where most slides were skipped.
+    source_page_count = Column(Integer, nullable=True)
+    pages_with_text = Column(Integer, nullable=True)
+    pages_via_ocr = Column(Integer, nullable=True)
+    pages_without_text = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 

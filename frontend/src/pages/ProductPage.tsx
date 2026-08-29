@@ -1,279 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Eye, Download, Calendar, Sparkles, FileText } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { ArrowLeft, Download, Calendar, AlertTriangle, RotateCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
-import { Footer } from '../components/Footer';
+import { PdfViewer } from '../components/PdfViewer';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
-import { PRODUCTS } from '../config/products';
-import { ProductSlug } from '../types';
+import { useProduct } from '../config/products';
+import { usePresentationManifest } from '../hooks/usePresentationManifest';
+import { downloadPresentation } from '../services/presentations';
 import { trackAnalyticsEvent } from '../services/analytics';
-import en from '../locales/en.json';
+import caspelIcon from '../assets/caspel-icon.svg';
 
+/**
+ * The canonical presentation experience.
+ *
+ * A visitor who taps a product at a stand wants the document, not a summary of
+ * the document with a button that opens it. The deck mounts here directly, and
+ * the intermediate step is gone.
+ *
+ * The four states below are deliberately distinct, because conflating them
+ * lies to the visitor. A manifest still loading is not an absent deck. A
+ * server that cannot be reached is not an unpublished deck — telling someone
+ * "not yet published" when the truth is "our server is down" is a false
+ * statement about CASPEL's materials. And a deck the registry has not approved
+ * is genuinely unavailable, not broken.
+ */
 export const ProductPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useTranslation();
+
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [pageCount, setPageCount] = useState<number | null>(null);
 
-  const productKey = (slug || 'caspel') as ProductSlug;
-  const product = PRODUCTS[productKey] || PRODUCTS.caspel;
+  const { getEntry, status, retry } = usePresentationManifest();
+  const product = useProduct(slug);
+
+  const validSlug = product?.slug ?? null;
+  const entry = validSlug ? getEntry(validSlug) : undefined;
+  const isAvailable = entry?.available ?? false;
+
+  // Exactly one PRODUCT_VIEW per product entered, and exactly one
+  // PRESENTATION_VIEW per viewer actually mounted. Refs rather than effect
+  // dependencies because a manifest retry, a language change and StrictMode's
+  // double-invoked effects would each otherwise count again.
+  const countedProductView = useRef<string | null>(null);
+  const countedPresentationView = useRef<string | null>(null);
 
   useEffect(() => {
-    trackAnalyticsEvent('PRODUCT_VIEW', product.slug);
-  }, [product.slug]);
+    if (!validSlug || countedProductView.current === validSlug) return;
+    countedProductView.current = validSlug;
+    trackAnalyticsEvent('PRODUCT_VIEW', validSlug);
+  }, [validSlug]);
 
-  const handleDownload = () => {
-    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', product.slug);
-    const link = document.createElement('a');
-    link.href = product.presentationUrl;
-    link.download = product.downloadFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  useEffect(() => {
+    if (!validSlug || !isAvailable) return;
+    if (countedPresentationView.current === validSlug) return;
+    countedPresentationView.current = validSlug;
+    trackAnalyticsEvent('PRESENTATION_VIEW', validSlug);
+  }, [validSlug, isAvailable]);
+
+  const handleDownload = useCallback(() => {
+    if (!validSlug || !product || !isAvailable) return;
+    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', validSlug);
+    downloadPresentation(validSlug, product.downloadFilename);
+  }, [validSlug, product, isAvailable]);
+
+  /**
+   * Natural Back when there is somewhere to go back to, the landing page when
+   * there is not. A deep link scanned from a printed code has no in-app
+   * history, and history.back() there leaves the site entirely.
+   */
+  const goBack = useCallback(() => {
+    const hasAppHistory = (location.key ?? 'default') !== 'default';
+    if (hasAppHistory) navigate(-1);
+    else navigate('/');
+  }, [navigate, location.key]);
+
+  if (!product || !validSlug) {
+    return <Navigate to="/not-found" replace />;
+  }
 
   return (
-    <div style={styles.pageWrapper}>
+    <div className="page page--viewer">
       <Header />
 
-      <main className="container" style={styles.mainContent}>
-        {/* Back navigation */}
-        <div style={styles.backNav}>
-          <button onClick={() => navigate('/ciftis')} style={styles.backBtn}>
-            <ArrowLeft size={16} />
-            <span>{en.actions.back}</span>
+      {/* Sticky, never fixed over the document: it yields to the page instead
+          of covering the first lines of a slide. */}
+      <div className="viewer-bar">
+        <div className="container viewer-bar__inner">
+          <button type="button" className="btn btn--ghost viewer-bar__back" onClick={goBack}>
+            <ArrowLeft size={18} aria-hidden="true" />
+            <span>{t('actions.back')}</span>
           </button>
-        </div>
 
-        {/* Product Header */}
-        <section style={styles.productHeader}>
-          <div style={{ ...styles.badge, borderColor: product.accentColor }}>
-            <span style={{ ...styles.badgeText, color: product.accentColor }}>
-              {product.badge}
-            </span>
-          </div>
-          <h1 style={styles.productTitle}>{product.name}</h1>
-          <p style={styles.productDescriptor}>{product.descriptor}</p>
-        </section>
-
-        {/* Overview Box */}
-        <section style={styles.overviewBox}>
-          <p style={styles.summaryText}>{product.description}</p>
-        </section>
-
-        {/* Presentation Preview Card */}
-        <section style={styles.previewCard}>
-          <div style={styles.previewIllustration}>
-            <FileText size={48} color="var(--color-accent)" />
-            <span style={styles.previewLabel}>{product.downloadFilename}</span>
+          <div className="viewer-bar__identity">
+            <span className="viewer-bar__name">{product.name}</span>
+            <span className="viewer-bar__descriptor">{product.descriptor}</span>
           </div>
 
-          <div style={styles.actionButtons}>
-            <Link
-              to={`/ciftis/presentation/${product.slug}`}
-              onClick={() => trackAnalyticsEvent('PRESENTATION_VIEW', product.slug)}
-              style={styles.primaryActionBtn}
+          <div className="viewer-bar__meta" aria-live="polite">
+            {status === 'loading' && <span>{t('presentation.loadingStatus')}</span>}
+            {status === 'ready' && pageCount !== null && (
+              <span>{t('presentation.pageCount', { count: pageCount })}</span>
+            )}
+          </div>
+
+          <div className="viewer-bar__actions">
+            <button
+              type="button"
+              className="btn btn--ghost viewer-bar__ai"
+              onClick={() => {
+                trackAnalyticsEvent('AI_OPEN', product.slug);
+                setIsAiModalOpen(true);
+              }}
             >
-              <Eye size={18} />
-              <span>{en.actions.viewPresentation}</span>
-            </Link>
+              <img src={caspelIcon} alt="" aria-hidden="true" className="viewer-bar__ai-icon" />
+              <span>{t('actions.askAi')}</span>
+            </button>
 
-            <button onClick={handleDownload} style={styles.secondaryActionBtn}>
-              <Download size={18} />
-              <span>{en.actions.downloadPresentation}</span>
+            {isAvailable && (
+              <button
+                type="button"
+                className="btn btn--primary viewer-bar__download"
+                onClick={handleDownload}
+              >
+                <Download size={16} aria-hidden="true" />
+                <span>{t('actions.download')}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <main className="viewer-main">
+        {status === 'loading' && (
+          <div className="viewer-status">
+            <p className="viewer-status__text" role="status">
+              {t('presentation.loadingStatus')}
+            </p>
+            <div className="u-skeleton viewer-status__block" aria-hidden="true" />
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="viewer-status" role="alert">
+            <span className="viewer-status__icon" aria-hidden="true">
+              <AlertTriangle size={22} />
+            </span>
+            <h1 className="viewer-status__title">{t('presentation.errorTitle')}</h1>
+            <p className="viewer-status__text">{t('presentation.errorText')}</p>
+            <button type="button" className="btn btn--secondary" onClick={retry}>
+              <RotateCw size={15} aria-hidden="true" />
+              <span>{t('actions.retry')}</span>
             </button>
           </div>
-        </section>
+        )}
 
-        {/* Action Row: Demo & AI */}
-        <section style={styles.bottomActions}>
-          <button
-            onClick={() => {
-              trackAnalyticsEvent('DEMO_OPEN', product.slug);
-              setIsDemoModalOpen(true);
-            }}
-            style={styles.demoActionBtn}
-          >
-            <Calendar size={18} />
-            <span>{en.actions.requestDemo}</span>
-          </button>
+        {status === 'ready' && isAvailable && (
+          <PdfViewer
+            url={product.presentationUrl}
+            onDownload={handleDownload}
+            onPageCountChange={setPageCount}
+          />
+        )}
 
-          <button
-            onClick={() => {
-              trackAnalyticsEvent('AI_OPEN', product.slug);
-              setIsAiModalOpen(true);
-            }}
-            style={styles.aiActionBtn}
-          >
-            <Sparkles size={18} color="var(--color-accent)" />
-            <span>{en.actions.askAi}</span>
-          </button>
-        </section>
+        {status === 'ready' && !isAvailable && (
+          <div className="viewer-status">
+            <h1 className="viewer-status__title">{t('presentation.unavailableTitle')}</h1>
+            <p className="viewer-status__text">{t('presentation.unavailableText')}</p>
+            <p className="viewer-status__summary">{product.description}</p>
+
+            <div className="viewer-status__actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => {
+                  trackAnalyticsEvent('DEMO_OPEN', product.slug);
+                  setIsDemoModalOpen(true);
+                }}
+              >
+                <Calendar size={18} aria-hidden="true" />
+                <span>{t('actions.requestDemo')}</span>
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
-      <Footer />
-
-      {/* Modals */}
       <RequestDemoModal
         isOpen={isDemoModalOpen}
         onClose={() => setIsDemoModalOpen(false)}
         defaultProduct={product.slug}
       />
-      <CaspelAIModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-      />
+      <CaspelAIModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  pageWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-  },
-  mainContent: {
-    paddingTop: '20px',
-    paddingBottom: '40px',
-  },
-  backNav: {
-    marginBottom: '20px',
-  },
-  backBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 14px',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text-secondary)',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  productHeader: {
-    marginBottom: '20px',
-  },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '34px',
-    height: '34px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    border: '1px solid',
-    marginBottom: '12px',
-  },
-  badgeText: {
-    fontSize: '14px',
-    fontWeight: '700',
-  },
-  productTitle: {
-    fontSize: '28px',
-    fontWeight: '800',
-    color: 'var(--color-text)',
-    marginBottom: '4px',
-  },
-  productDescriptor: {
-    fontSize: '15px',
-    color: 'var(--color-text-secondary)',
-    fontWeight: '500',
-  },
-  overviewBox: {
-    padding: '18px 20px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    marginBottom: '24px',
-  },
-  summaryText: {
-    fontSize: '14px',
-    lineHeight: 1.6,
-    color: 'var(--color-text)',
-  },
-  previewCard: {
-    padding: '28px 20px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    marginBottom: '24px',
-    textAlign: 'center',
-  },
-  previewIllustration: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '24px',
-  },
-  previewLabel: {
-    fontSize: '13px',
-    color: 'var(--color-text-secondary)',
-    fontWeight: '600',
-  },
-  actionButtons: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  primaryActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    background: 'var(--color-accent-gradient)',
-    color: '#ffffff',
-    fontSize: '15px',
-    fontWeight: '700',
-    boxShadow: '0 4px 15px rgba(0, 102, 204, 0.35)',
-  },
-  secondaryActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-elevated)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '15px',
-    fontWeight: '600',
-  },
-  bottomActions: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '12px',
-  },
-  demoActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
-  aiActionBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '14px',
-    borderRadius: 'var(--radius-md)',
-    backgroundColor: 'var(--color-surface-card)',
-    border: '1px solid var(--color-border)',
-    color: 'var(--color-text)',
-    fontSize: '14px',
-    fontWeight: '600',
-  },
 };

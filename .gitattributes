@@ -1,0 +1,22 @@
+# Binary assets — never diff or merge these as text. Without this, git tries to
+# text-diff the 24 MB corporate deck.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+
+# Normalise line endings for source so Windows and Linux checkouts agree.
+*.py    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.conf  text eol=lf
+*.sh    text eol=lf

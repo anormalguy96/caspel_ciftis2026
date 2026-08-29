@@ -7,8 +7,6 @@ export interface ProductConfig {
   description: string;
   presentationUrl: string;
   downloadFilename: string;
-  badge?: string;
-  accentColor: string;
 }
 
 export interface LeadFormData {

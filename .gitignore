@@ -1,27 +1,41 @@
-# Python
 .venv
 __pycache__
 *.pyc
 .pytest_cache
-
-# Data / temporary artifacts
 data/*
 !data/presentations/
 !data/presentations/.gitkeep
-
-# Node.js
+.backups/
+.playwright/
+chrome-profile*/
 node_modules/
 .env
 *.log
-
-# Docker
 *.egg-info/
 dist/
 build/
-
-# macOS
 .DS_Store
-
-# IDE / Editor
 .idea/
 .vscode/
+.claude/
+caspel_frontend_src.tar.gz
+document.md
+PHASE1_REPORT.md
+ARCHITECTURE.md
+IMPLEMENTATION.md
+TODO.md
+CASPEL-CIFTIS-2026-PROJECT-SUMMARY.md
+CASPEL-CIFTIS-2026-PROJECT-GUIDELINES.md
+CASPEL-CIFTIS-2026-PHASE-1-DOCUMENTATION.md
+PHASE2_REPORT.md
+phase2_report.md
+report1.md
+report2.md
+prompt1.md
+prompt2.md
+.venv_wsl/
+PHASE1_REPORT.md
+implementation.md
+docs/PHASE2_1_VERIFICATION_REPORT.md
+*.tsbuildinfo
+Skills/

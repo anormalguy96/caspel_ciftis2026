@@ -1,0 +1,264 @@
+/* ============================================================
+   KIOSK LAYER — CASPEL / CIFTIS 2026  (Page A)
+
+   The unattended exhibition screen: a silent looping film that
+   hands the visitor off to Page B by QR code. Runs on a tablet in
+   either orientation, so everything here is viewport-relative and
+   nothing scrolls.
+   ============================================================ */
+
+.kiosk {
+  position: relative;
+  width: 100%;
+  /* dvh follows a tablet browser's collapsing chrome; the vh line is the
+     fallback for anything that does not support it. */
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--color-dark-bg);
+  color: var(--color-dark-text);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* A kiosk never scrolls. Anything taller than the screen is a bug, not
+     something to reveal by dragging. */
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ── The film ────────────────────────────────────────────────
+   `cover` fills the screen in both orientations without letterboxing
+   and without the non-uniform stretch that `fill` would produce on a
+   portrait tablet showing 16:9 footage. */
+
+.kiosk__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  /* Never interactive on its own: the whole surface handles the tap, and a
+     stray control surface would be reachable by a visitor's stray touch. */
+  pointer-events: none;
+  background-color: var(--color-dark-bg);
+}
+
+/* ── Standing prompt ─────────────────────────────────────────
+   Sits over the film. Static: a pulsing call-to-action on a screen
+   in a busy hall reads as an advertisement, not an instruction. */
+
+.kiosk__prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border: 1px solid var(--color-dark-border);
+  border-radius: var(--radius-full);
+  /* Legible over any frame of the film without hiding it. */
+  background-color: rgba(4, 34, 47, 0.72);
+  backdrop-filter: blur(6px);
+  color: var(--color-dark-text);
+  font-size: clamp(15px, 1.6vw, 20px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.kiosk__prompt--floating {
+  position: absolute;
+  left: 50%;
+  bottom: max(var(--space-2xl), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* ── Autoplay refused ────────────────────────────────────── */
+
+.kiosk__notice {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background-color: var(--color-dark-bg);
+}
+
+/* ── Video unavailable ───────────────────────────────────────
+   The stand still gets its handoff: QR and address, no film. */
+
+.kiosk__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  text-align: center;
+  background-color: var(--color-dark-bg);
+}
+
+.kiosk__title {
+  max-width: 20ch;
+  font-size: clamp(28px, 5vw, 56px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--color-dark-text);
+  text-wrap: balance;
+}
+
+.kiosk__subtitle {
+  max-width: 44ch;
+  font-size: clamp(15px, 2vw, 20px);
+  line-height: 1.5;
+  color: var(--color-dark-text-secondary);
+}
+
+/* ── QR overlay ──────────────────────────────────────────────
+   The dim layer is what makes the code scannable: a phone camera
+   needs the surrounding field calm, and the film underneath is
+   paused rather than merely covered. */
+
+.kiosk__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background-color: rgba(4, 34, 47, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.kiosk__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 460px;
+  /* Never taller than the screen: a kiosk cannot be scrolled. */
+  max-height: calc(100dvh - var(--space-2xl));
+  padding: var(--space-xl);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  cursor: default;
+  overflow: hidden;
+}
+
+.kiosk__card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.kiosk__card-title {
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+/* Large enough to hit confidently on a tablet, from any angle. */
+.kiosk__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  margin: calc(var(--space-sm) * -1) calc(var(--space-sm) * -1) 0 0;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-both);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kiosk__close:hover {
+    background-color: var(--color-border);
+  }
+}
+
+/* ── The code itself ─────────────────────────────────────────
+   Pure white ground and a generous quiet zone. The SVG is drawn at
+   whatever size the screen allows, so it stays sharp at any
+   resolution — a raster QR would soften on a 4K panel. */
+
+.kiosk__qr {
+  padding: var(--space-md);
+  background-color: #ffffff;
+  border-radius: var(--radius-md);
+  line-height: 0;
+}
+
+.kiosk__qr svg {
+  display: block;
+  width: clamp(200px, 34vmin, 320px);
+  height: auto;
+  /* Keep module edges hard; smoothing a QR costs scan reliability. */
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
+/* The address in plain text, for a camera that will not cooperate. */
+.kiosk__url {
+  font-size: clamp(15px, 1.8vw, 19px);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.kiosk__fallback .kiosk__url {
+  color: var(--color-dark-text);
+}
+
+.kiosk__instruction {
+  max-width: 34ch;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.kiosk__countdown {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Orientation ─────────────────────────────────────────────
+   A landscape tablet has little vertical room; shrink the card's
+   own padding rather than letting it exceed the screen. */
+
+@media (orientation: landscape) and (max-height: 620px) {
+  .kiosk__card {
+    padding: var(--space-lg);
+    gap: var(--space-sm);
+  }
+
+  .kiosk__qr svg {
+    width: clamp(160px, 30vmin, 240px);
+  }
+
+  .kiosk__instruction {
+    display: none;
+  }
+
+  .kiosk__prompt--floating {
+    bottom: var(--space-lg);
+  }
+}

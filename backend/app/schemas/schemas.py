@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -40,6 +39,11 @@ class EventResponse(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
     message: str = Field(..., min_length=1, max_length=1000)
+    #: Which language the browser UI is displaying. A hint only: the visitor's
+    #: own question decides the response language, and this breaks the tie when
+    #: the message is too short to classify ("PMS?"). Constrained so an
+    #: arbitrary string cannot be injected into the generation instruction.
+    ui_locale: Optional[Literal["en", "zh-CN"]] = None
 
 
 class ChatSource(BaseModel):
@@ -56,13 +60,36 @@ class ChatResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: str
-    database: str
-    app_env: str
+    """
+    Deliberately minimal.
+
+    /api/health is reachable by anyone who can reach the site, so it reports
+    liveness and nothing else. Environment name, model names, database topology
+    and corpus statistics are operational detail; publishing them to the public
+    internet hands an attacker a free inventory of the deployment.
+    """
+
+    status: Literal["healthy", "degraded"]
+
+
+class ReadyChecks(BaseModel):
+    """Pass/fail per dependency. Booleans only, no names, versions or counts."""
+
+    database: bool
+    vector_extension: bool
+    live_ai_provider: bool
+    approved_corpus: bool
 
 
 class ReadyResponse(BaseModel):
-    status: str
-    database: str
-    vector_extension: bool
-    rag_ready: bool
+    status: Literal["ready", "not_ready"]
+    checks: ReadyChecks
+
+
+class PresentationItem(BaseModel):
+    slug: str
+    name: str
+    available: bool
+    download_filename: str
+    size_bytes: Optional[int] = None
+    page_count: Optional[int] = None

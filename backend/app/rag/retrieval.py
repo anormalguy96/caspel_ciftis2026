@@ -1,9 +1,14 @@
+import asyncio
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Optional
+
 from sqlalchemy import select
-from app.models.entities import DocumentChunk, Document
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.models.entities import Document, DocumentChunk
 from app.rag.embeddings import embedding_service
+from app.rag.errors import EmbeddingError, RetrievalError
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +44,24 @@ class RetrievalService:
         product_filter: Optional[str] = None,
     ) -> List[RetrievedChunk]:
         """
-        Compute query embedding and perform cosine distance similarity search in pgvector.
+        Embed the question and run a pgvector cosine-distance search.
+
+        Raises RetrievalError if the embedding provider or the vector store is
+        unreachable. An empty list means the corpus genuinely holds nothing
+        above the similarity threshold, which is a normal answer.
         """
         if not query or not query.strip():
             return []
 
-        query_embedding = embedding_service.get_embedding(query)
+        try:
+            query_embedding = await asyncio.to_thread(
+                embedding_service.get_query_embedding, query
+            )
+        except EmbeddingError as exc:
+            # No query text in the message: visitor-entered content must not be
+            # copied into application logs.
+            raise RetrievalError(f"Query embedding failed: {exc}") from exc
 
-        # Build query using pgvector cosine_distance
         distance_col = DocumentChunk.embedding.cosine_distance(query_embedding).label("distance")
 
         stmt = (
@@ -69,15 +84,21 @@ class RetrievalService:
 
         stmt = stmt.order_by(distance_col.asc()).limit(top_k)
 
-        result = await db.execute(stmt)
-        rows = result.all()
+        try:
+            result = await db.execute(stmt)
+            rows = result.all()
+        except Exception as exc:
+            raise RetrievalError(f"Vector search failed: {exc}") from exc
 
         retrieved: List[RetrievedChunk] = []
         for row in rows:
-            # Cosine distance ranges from 0 (identical) to 2 (opposite)
-            # Similarity score = 1 - (distance / 2)
+            # Cosine distance runs 0 (identical) to 2 (opposite);
+            # similarity = 1 - cosine_distance.
             distance = float(row.distance) if row.distance is not None else 1.0
-            similarity = max(0.0, 1.0 - (distance / 2.0))
+            similarity = max(0.0, 1.0 - distance)
+
+            if similarity < settings.RAG_SIMILARITY_THRESHOLD:
+                continue
 
             retrieved.append(
                 RetrievedChunk(
@@ -92,7 +113,9 @@ class RetrievalService:
                 )
             )
 
-        logger.info(f"Retrieved {len(retrieved)} chunks for query: '{query[:50]}...'")
+        # Count only. Logging even a truncated preview of the question would put
+        # visitor-entered text into the application log.
+        logger.info("Retrieved %s chunk(s) above threshold", len(retrieved))
         return retrieved
 
 
