@@ -39,6 +39,11 @@ class EventResponse(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
     message: str = Field(..., min_length=1, max_length=1000)
+    #: Which language the browser UI is displaying. A hint only: the visitor's
+    #: own question decides the response language, and this breaks the tie when
+    #: the message is too short to classify ("PMS?"). Constrained so an
+    #: arbitrary string cannot be injected into the generation instruction.
+    ui_locale: Optional[Literal["en", "zh-CN"]] = None
 
 
 class ChatSource(BaseModel):

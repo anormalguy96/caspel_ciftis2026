@@ -259,9 +259,9 @@ def test_generation_retries_transient_error_then_succeeds(monkeypatch):
         monkeypatch, side_effect=[Exception("503 UNAVAILABLE: high demand"), ok]
     )
 
-    answer = srv.generate_response("What is ERP?", [_chunk()])
+    result = srv.generate_response("What is ERP?", [_chunk()])
 
-    assert answer == "Caspel ERP covers finance and procurement."
+    assert result.answer == "Caspel ERP covers finance and procurement."
     assert client.models.generate_content.call_count == 2
 
 
@@ -331,9 +331,11 @@ def test_empty_retrieval_is_an_answer_not_a_failure(monkeypatch):
     """
     srv, client = _generation_service(monkeypatch, side_effect=Exception("never called"))
 
-    answer = srv.generate_response("What is the CEO's salary?", [])
+    result = srv.generate_response("What is the CEO's salary?", [])
 
-    assert answer == NO_CONTEXT_ANSWER
+    assert result.answer == NO_CONTEXT_ANSWER
+    assert result.sources == []
+    assert result.grounded is False
     assert client.models.generate_content.call_count == 0
 
 
@@ -358,11 +360,17 @@ def _patch_retrieval(monkeypatch, result=None, exc=None):
 
 def _patch_generation(monkeypatch, answer=None, exc=None):
     import app.rag.service as service_module
+    from app.rag.citations import build_source_records
+    from app.rag.generation import GenerationResult
 
-    def fake(question, chunks):
+    def fake(question, chunks, history=None, response_language="en"):
         if exc:
             raise exc
-        return answer
+        # Mirror the real contract: sources are the server-owned records the
+        # answer cited, so a stub that returned every chunk would hide a
+        # citation-validation regression.
+        records = build_source_records(chunks)
+        return GenerationResult(answer=answer, sources=records, grounded=bool(chunks))
 
     monkeypatch.setattr(service_module.generation_service, "generate_response", fake)
 

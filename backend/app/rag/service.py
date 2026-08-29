@@ -11,6 +11,7 @@ from app.rag.embeddings import embedding_service
 from app.rag.errors import RagError
 from app.rag.extractor import PDFExtractor
 from app.rag.generation import generation_service
+from app.rag.language import resolve_response_language
 from app.rag.retrieval import retrieval_service
 from app.schemas.schemas import ChatResponse, ChatSource
 
@@ -109,6 +110,7 @@ class RagService:
         db: AsyncSession,
         session_id: str,
         question: str,
+        ui_locale: Optional[str] = None,
     ) -> ChatResponse:
         """
         Full RAG conversational pipeline with chat session persistence.
@@ -117,15 +119,25 @@ class RagService:
         written to the transcript unless a real answer was produced: recording
         an outage as an assistant message would make the failure indistinguishable
         from a reply in every downstream count.
+
+        `ui_locale` is a hint, not a instruction. The visitor's own question
+        decides the response language; the browser's locale only breaks a tie
+        when the message is too short to classify.
         """
+        # The language decision is made here, offline, before any provider is
+        # involved. It never depends on what the model feels like answering in.
+        response_language = resolve_response_language(question, ui_locale)
+
         # 1. Retrieve first. If the pipeline cannot run, nothing is persisted.
         retrieved_chunks = await retrieval_service.retrieve(db=db, query=question, top_k=4)
 
         # 2. Generate. Raises rather than returning a stand-in sentence.
-        answer = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             generation_service.generate_response,
             question,
             retrieved_chunks,
+            None,
+            response_language,
         )
 
         # 3. Only now is there an exchange worth storing.
@@ -137,20 +149,22 @@ class RagService:
             await db.flush()
 
         db.add(ChatMessage(session_id=session_id, role="user", content=question))
-        db.add(ChatMessage(session_id=session_id, role="assistant", content=answer))
+        db.add(ChatMessage(session_id=session_id, role="assistant", content=result.answer))
         await db.commit()
 
+        # Only citations the server could verify against what was actually
+        # retrieved. A title or page the model wrote itself never gets here.
         sources = [
             ChatSource(
-                document=c.document_name,
-                product=c.product,
-                page=c.page_number,
-                score=c.score,
+                document=record.document,
+                product=record.product,
+                page=record.page,
+                score=record.score,
             )
-            for c in retrieved_chunks
+            for record in result.sources
         ]
 
-        return ChatResponse(answer=answer, sources=sources, session_id=session_id)
+        return ChatResponse(answer=result.answer, sources=sources, session_id=session_id)
 
 
 rag_service = RagService()

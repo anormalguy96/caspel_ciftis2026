@@ -205,9 +205,9 @@ def test_retry_after_a_timeout_returns_the_grounded_answer(monkeypatch):
     ok.text = "Caspel ERP covers finance and procurement."
     service, client = _service(monkeypatch, side_effect=[httpx.ReadTimeout(""), ok])
 
-    answer = service.generate_response("What is ERP?", [_chunk()])
+    result = service.generate_response("What is ERP?", [_chunk()])
 
-    assert answer == "Caspel ERP covers finance and procurement."
+    assert result.answer == "Caspel ERP covers finance and procurement."
     assert client.models.generate_content.call_count == 2
 
 

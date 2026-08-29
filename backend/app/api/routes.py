@@ -365,6 +365,7 @@ async def chat_endpoint(
             db=db,
             session_id=payload.session_id,
             question=payload.message,
+            ui_locale=payload.ui_locale,
         )
     except RagError as e:
         # No question text in the log line.
