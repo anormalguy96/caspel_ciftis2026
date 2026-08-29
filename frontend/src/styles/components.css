@@ -114,20 +114,6 @@
   min-height: 44px;
 }
 
-.site-header__logo {
-  display: block;
-  height: 30px;
-  width: auto;
-}
-
-.site-header__ciftis-logo {
-  display: block;
-  height: 35px;
-  width: auto;
-  object-fit: contain;
-  margin-left: 3px;
-}
-
 /* CIFTIS is named, not badged. See components/Header.tsx. */
 .site-header__event {
   flex-shrink: 0;
@@ -241,10 +227,6 @@
 
 /* ── Hero ────────────────────────────────────────────────── */
 
-.hero__inner {
-  max-width: var(--measure);
-}
-
 @media (min-width: 768px) {
   .hero {
     padding: var(--space-3xl) 0 var(--space-2xl);
@@ -252,10 +234,6 @@
 }
 
 /* ── Landing ─────────────────────────────────────────────── */
-
-.landing__section {
-  margin-bottom: var(--space-2xl);
-}
 
 @media (min-width: 720px) {
   .landing__cards {
@@ -323,14 +301,6 @@
 }
 
 /* ── Closing CTA ─────────────────────────────────────────── */
-
-.cta__text {
-  max-width: 54ch;
-}
-
-.cta__btn {
-  flex: 1 1 240px;
-}
 
 /* Dark ink on the action green, not white.
    White on any green deep enough to sit beside the forest hero measures about
@@ -587,11 +557,6 @@
    vision and a screen reader equally.
    ============================================================ */
 
-.lang-switch__option:hover {
-  color: var(--color-text);
-  background: var(--color-surface-elevated);
-}
-
 .lang-switch__option:focus-visible {
   outline: 2px solid var(--color-dark);
   outline-offset: 2px;
@@ -614,10 +579,6 @@
    inside the first 390x844 screen while leaving room for all
    four products underneath, so it stays one row tall on mobile.
    ============================================================ */
-.ai-entry {
-  margin: 0 0 var(--space-xl);
-}
-
 .ai-entry__icon {
   display: grid;
   flex: 0 0 auto;
@@ -632,17 +593,6 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-}
-
-.ai-entry__suggestions-label {
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
-
-.ai-entry__suggestion-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
 }
 
 .ai-entry__suggestion:focus-visible {
@@ -707,7 +657,15 @@
   min-height: 68px;
 }
 
-.site-header__logo { height: 28px; }
+.site-header__logo {
+  display: block;
+  width: auto;
+  /* 28px, not the 30px this rule used to carry further up the file. The two
+     @media height overrides above are declared BEFORE this point at equal
+     specificity, so they have never applied; consolidating upward instead of
+     here would have revived them at 400px and 768px. */
+  height: 28px;
+}
 
 .site-header__logo-divider {
   display: block;
@@ -717,7 +675,13 @@
   margin: 0 5px;
 }
 
-.site-header__ciftis-logo { height: 32px; }
+.site-header__ciftis-logo {
+  display: block;
+  width: auto;
+  height: 32px;
+  object-fit: contain;
+  margin-left: 3px;
+}
 
 .hero {
   padding: 28px 0 18px;
@@ -725,7 +689,9 @@
   z-index: var(--z-raised);
 }
 
-.hero__inner { max-width: var(--layout-max); }
+.hero__inner {
+  max-width: var(--layout-max);
+}
 
 .hero__title {
   font-size: clamp(32px, 6.5vw, 68px);
@@ -806,7 +772,9 @@
   padding-bottom: 64px;
 }
 
-.landing__section { margin-bottom: 56px; }
+.landing__section {
+  margin-bottom: 56px;
+}
 
 .section-label {
   margin-bottom: 8px;
@@ -934,7 +902,9 @@
   color: var(--color-text);
 }
 
-.cta__text { max-width: 54ch; }
+.cta__text {
+  max-width: 54ch;
+}
 
 .cta__title {
   font-size: clamp(22px, 3vw, 30px);
@@ -957,7 +927,9 @@
   gap: var(--space-sm);
 }
 
-.cta__btn { flex: 1 1 240px; }
+.cta__btn {
+  flex: 1 1 240px;
+}
 
 .site-footer__link {
   display: inline-flex;
@@ -988,7 +960,12 @@
   background: transparent;
 }
 
-.lang-switch__option:hover { background: transparent; }
+.lang-switch__option:hover {
+  color: var(--color-text);
+  /* Transparent, not --color-surface-elevated: on the dark header a raised
+     light surface read as a second active state next to aria-pressed. */
+  background: transparent;
+}
 
 .lang-switch__option[aria-pressed='true'] {
   background: transparent;
@@ -1006,7 +983,9 @@
   background-color: var(--green-500);
 }
 
-.ai-entry { margin: 0; }
+.ai-entry {
+  margin: 0;
+}
 
 .ai-entry__prompt {
   display: flex;
@@ -1105,9 +1084,18 @@
   padding-left: 0;
 }
 
-.ai-entry__suggestions-label { color: rgba(255, 255, 255, 0.48); }
+.ai-entry__suggestions-label {
+  /* Muted white: this label sits on the dark landing stage, not on the light
+     page surface --color-text-muted was chosen for. */
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+}
 
-.ai-entry__suggestion-row { gap: 16px; }
+.ai-entry__suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 
 .ai-entry__suggestion:hover {
   border-color: var(--chat-accent);

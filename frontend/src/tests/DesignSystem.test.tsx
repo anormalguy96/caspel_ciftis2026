@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import { ActionArrow } from '../components/ActionArrow';
 import { Footer } from '../components/Footer';
@@ -170,5 +170,277 @@ describe('overlay open and close preserve focus', () => {
     await screen.findByRole('dialog');
 
     expect(document.body.style.overflow).toBe('hidden');
+  });
+});
+
+// ==========================================================================
+// Stylesheet cascade — one authoritative rule per selector
+// ==========================================================================
+
+/**
+ * Minimal CSS rule scanner, written for this audit rather than pulled in as a
+ * dependency: the check is a handful of braces and a string state machine, and
+ * a parser dependency would be a larger surface than the thing it verifies.
+ *
+ * Two mistakes made earlier versions of this audit useless, so both are
+ * fixtured below:
+ *
+ *   1. A line-based scan reads the last line of a multi-line selector group
+ *      (`.a,\n.b {`) as a rule of its own. It reported six duplicates that did
+ *      not exist while missing every real one.
+ *   2. Skipping comments during the scan is not enough. A rule's selector is
+ *      the text back to the previous `}`, which normally includes the section
+ *      comment above it — so `/* Hero *\/ .hero__inner` and `.hero__inner`
+ *      hash differently and the duplicate slips through. Comments must be
+ *      blanked out of the captured text, not merely stepped over.
+ */
+
+/** Replace comment bodies with spaces, preserving every byte offset. */
+export function blankComments(css: string): string {
+  const out = css.split('');
+  let inComment = false;
+  let inString: string | null = null;
+  for (let i = 0; i < css.length; i += 1) {
+    const c = css[i];
+    const n = css[i + 1];
+    if (inComment) {
+      if (c === '*' && n === '/') { out[i] = ' '; out[i + 1] = ' '; i += 1; inComment = false; }
+      else if (c !== '\n') out[i] = ' ';
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === inString) inString = null;
+      continue;
+    }
+    // A `/*` inside a string is not a comment.
+    if (c === '/' && n === '*') { inComment = true; out[i] = ' '; out[i + 1] = ' '; i += 1; continue; }
+    if (c === '"' || c === "'") inString = c;
+  }
+  return out.join('');
+}
+
+/**
+ * Selector lists of every rule at the top level of the sheet. Rules nested in
+ * an at-rule are a different cascade context and are deliberately excluded —
+ * `.a {}` and `@media print { .a {} }` are not duplicates of each other.
+ */
+export function topLevelSelectors(css: string): string[] {
+  const scan = blankComments(css);
+  const selectors: string[] = [];
+  let depth = 0;
+  let start = 0;
+  let inString: string | null = null;
+
+  for (let i = 0; i < scan.length; i += 1) {
+    const c = scan[i];
+    if (inString) {
+      if (c === '\\') { i += 1; continue; }
+      if (c === inString) inString = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { inString = c; continue; }
+
+    if (c === '{') {
+      if (depth === 0) {
+        const sel = scan.slice(start, i).trim();
+        if (sel && !sel.startsWith('@')) selectors.push(sel);
+      }
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0) start = i + 1;
+      if (depth < 0) depth = 0;
+    }
+  }
+  return selectors;
+}
+
+/** Whitespace- and order-insensitive key, so `.a, .b` and `.b,\n.a` match. */
+export function selectorKey(selectorList: string): string {
+  return selectorList
+    .split(',')
+    .map((part) => part.trim().replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .sort()
+    .join(', ');
+}
+
+/**
+ * `:root` is opened once per concern — palette, green ramp, focus, targets,
+ * layering — each block carrying its own rationale. That is the documented
+ * convention in ARCHITECTURE.md §2.7, not an accidental redefinition, and it
+ * is the single exemption.
+ */
+const MULTI_BLOCK_BY_CONVENTION = new Set([':root']);
+
+export function duplicateSelectors(css: string): Array<{ selector: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const sel of topLevelSelectors(css)) {
+    const key = selectorKey(sel);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .filter(([sel, count]) => count > 1 && !MULTI_BLOCK_BY_CONVENTION.has(sel))
+    .map(([selector, count]) => ({ selector, count }));
+}
+
+describe('the parser behind the audit', () => {
+  it('treats a multiline selector group as one selector list', () => {
+    const css = `
+      .chat__ambient-field,
+      .chat__ambient-loop {
+        position: absolute;
+      }
+    `;
+    expect(topLevelSelectors(css)).toEqual(['.chat__ambient-field,\n      .chat__ambient-loop']);
+    expect(duplicateSelectors(css)).toEqual([]);
+  });
+
+  it('does not mistake the last line of a group for its own rule', () => {
+    // The exact shape that made the line-based version report phantom duplicates.
+    const css = `
+      .a,
+      .b { color: red; }
+
+      .b { color: blue; }
+    `;
+    // .b appears once alone and once inside a group: those are different
+    // selector lists, so neither is a duplicate of the other.
+    expect(duplicateSelectors(css)).toEqual([]);
+  });
+
+  it('strips the section comment above a rule from its selector', () => {
+    // The exact shape that made the comment-skipping version miss real ones.
+    const css = `
+      /* ── Hero ─────────────────── */
+
+      .hero__inner { max-width: 60ch; }
+
+      .hero__inner { max-width: 72rem; }
+    `;
+    expect(duplicateSelectors(css)).toEqual([{ selector: '.hero__inner', count: 2 }]);
+  });
+
+  it('does not treat a comment inside a string as a comment', () => {
+    const css = `
+      .a::before { content: "/* not a comment */"; }
+      .b { color: red; }
+    `;
+    expect(topLevelSelectors(css)).toEqual(['.a::before', '.b']);
+  });
+
+  it('does not treat a brace inside a string as structure', () => {
+    const css = `
+      .a { content: "}"; }
+      .a { color: red; }
+    `;
+    // Both rules really are .a. A scanner that let the quoted brace close the
+    // rule would desynchronise and fold the stray `}` into the next
+    // selector's text, so the two would no longer hash alike and the genuine
+    // duplicate would go unreported.
+    expect(duplicateSelectors(css)).toEqual([{ selector: '.a', count: 2 }]);
+  });
+
+  it('handles an escaped quote inside a string', () => {
+    const css = `
+      .a::before { content: '\\''; }
+      .b { color: red; }
+    `;
+    expect(topLevelSelectors(css)).toEqual(['.a::before', '.b']);
+  });
+
+  it('keeps rules in different at-rule contexts distinct', () => {
+    const css = `
+      .a { color: red; }
+
+      @media (min-width: 900px) {
+        .a { color: blue; }
+      }
+
+      @supports (backdrop-filter: blur(1px)) {
+        .a { color: green; }
+      }
+    `;
+    expect(topLevelSelectors(css)).toEqual(['.a']);
+    expect(duplicateSelectors(css)).toEqual([]);
+  });
+
+  it('resumes correctly after a nested at-rule block', () => {
+    const css = `
+      @media (min-width: 900px) {
+        .a { color: blue; }
+      }
+
+      .c { color: red; }
+
+      .c { color: green; }
+    `;
+    expect(duplicateSelectors(css)).toEqual([{ selector: '.c', count: 2 }]);
+  });
+
+  it('ignores selector part order and whitespace when comparing', () => {
+    const css = `
+      .a,
+      .b { color: red; }
+
+      .b,   .a { color: blue; }
+    `;
+    expect(duplicateSelectors(css)).toEqual([{ selector: '.a, .b', count: 2 }]);
+  });
+
+  it('exempts :root, which is opened once per concern by convention', () => {
+    const css = `
+      :root { --a: 1; }
+      :root { --b: 2; }
+      :root { --c: 3; }
+    `;
+    expect(duplicateSelectors(css)).toEqual([]);
+  });
+
+  it('still reports a genuine duplicate that is not :root', () => {
+    const css = `
+      :root { --a: 1; }
+      :root { --b: 2; }
+      .card { color: red; }
+      .card { color: blue; }
+    `;
+    expect(duplicateSelectors(css)).toEqual([{ selector: '.card', count: 2 }]);
+  });
+});
+
+describe('every application stylesheet defines each selector exactly once', () => {
+  const SHEETS = [
+    'components.css',
+    'global.css',
+    'kiosk.css',
+    'modals.css',
+    'motion.css',
+    'pages.css',
+    'tokens.css',
+  ];
+
+  it.each(SHEETS)('%s has no duplicate top-level selector list', (sheet) => {
+    const css = readFileSync(`src/styles/${sheet}`, 'utf8');
+    const dupes = duplicateSelectors(css);
+    expect(
+      dupes.map((d) => `${d.selector} x${d.count}`),
+      `${sheet} redefines a selector already defined at the top level of the same ` +
+        'file. Merge it into the rule that currently wins -- usually the later ' +
+        'one, and always the later one when an @media block sits between them.'
+    ).toEqual([]);
+  });
+
+  it('audits all seven sheets, so a new stylesheet cannot slip past unchecked', () => {
+    const onDisk = readdirSync('src/styles').filter((f) => f.endsWith('.css')).sort();
+    expect(onDisk).toEqual([...SHEETS].sort());
+  });
+
+  it('reports zero duplicates across the whole stylesheet set', () => {
+    const total = SHEETS.reduce(
+      (n, sheet) => n + duplicateSelectors(readFileSync(`src/styles/${sheet}`, 'utf8')).length,
+      0
+    );
+    expect(total).toBe(0);
   });
 });
