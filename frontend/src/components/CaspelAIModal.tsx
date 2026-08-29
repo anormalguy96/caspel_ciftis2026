@@ -9,6 +9,7 @@ import { useExitTransition } from '../hooks/useExitTransition';
 import { useModalA11y } from '../hooks/useModalA11y';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import caspelIcon from '../assets/caspel-icon.svg';
+import { ActionArrow } from './ActionArrow';
 
 interface CaspelAIModalProps {
   isOpen: boolean;
@@ -171,18 +172,36 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
           </button>
         </div>
 
-        {isEmptyState && (
-          <div className="chat__ambient" aria-hidden="true" data-testid="chat-ambient">
-            <span className="chat__ambient-field chat__ambient-field--a" />
-            <span className="chat__ambient-field chat__ambient-field--b" />
-            <span className="chat__ambient-field chat__ambient-field--c" />
-            <span className="chat__ambient-field chat__ambient-field--d" />
-            <span className="chat__ambient-field chat__ambient-field--e" />
-            <span className="chat__ambient-loop chat__ambient-loop--a" />
-            <span className="chat__ambient-loop chat__ambient-loop--b" />
-            <span className="chat__ambient-loop chat__ambient-loop--c" />
-          </div>
-        )}
+        {/*
+          One canvas, two states.
+
+          The layer is no longer unmounted when the conversation starts. A
+          visitor crosses that moment in every single session, and swapping a
+          saturated field for a differently-coloured document made the
+          assistant read as two products joined together. It stays and recedes.
+
+          It also stops moving. Dimming alone would leave motion running behind
+          long-form text someone is trying to read, and would keep six promoted
+          compositor layers animating for the whole conversation on an
+          exhibition phone. Paused at 18% it is atmosphere: the identity holds
+          without the cost.
+
+          Six layers, not nine. Three fields carry colour and three rings carry
+          structure; past that the overlaps stop reading as distinct light.
+        */}
+        <div
+          className="chat__ambient"
+          data-state={isEmptyState ? 'idle' : 'receded'}
+          aria-hidden="true"
+          data-testid="chat-ambient"
+        >
+          <span className="chat__ambient-field chat__ambient-field--a" />
+          <span className="chat__ambient-field chat__ambient-field--b" />
+          <span className="chat__ambient-field chat__ambient-field--c" />
+          <span className="chat__ambient-loop chat__ambient-loop--a" />
+          <span className="chat__ambient-loop chat__ambient-loop--b" />
+          <span className="chat__ambient-loop chat__ambient-loop--c" />
+        </div>
 
         <div
           className="chat__log"
@@ -212,7 +231,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
                       {String(index + 1).padStart(2, '0')}
                     </span>
                     <span>{q}</span>
-                    <span className="chat__suggestion-arrow" aria-hidden="true">↗</span>
+                    <ActionArrow direction="internal" size="sm" className="chat__suggestion-arrow" />
                   </button>
                 ))}
               </div>

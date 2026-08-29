@@ -9,7 +9,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -30,12 +30,6 @@
   overflow-y: auto;
   /* Clear the iPhone home indicator. */
   padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
-}
-
-.modal--chat {
-  height: 92dvh;
-  padding-bottom: 0;
-  overflow: hidden;
 }
 
 .modal__header {
@@ -67,15 +61,23 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  /* 40px was below the touch minimum on the demo-request modal. The
+     visual disc can stay small; the target is what has to be 44. */
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: var(--target-min);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
   transition:
     background-color var(--dur-micro) var(--ease-both),
-    color            var(--dur-micro) var(--ease-both);
+    color            var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+.modal__close:active {
+  transform: scale(0.92);
+  background-color: var(--color-surface-elevated);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -185,17 +187,6 @@
   height: 24px;
 }
 
-.chat__avatar--assistant {
-  background-color: var(--color-primary-light);
-  border: 1px solid rgba(81, 183, 72, 0.2);
-  color: var(--color-primary-ink);
-}
-
-.chat__avatar--assistant .chat__caspel-icon {
-  width: 18px;
-  height: 18px;
-}
-
 .chat__log {
   flex: 1;
   min-height: 0;
@@ -218,57 +209,12 @@
   flex-direction: row-reverse;
 }
 
-.chat__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-}
-
-.chat__avatar--assistant {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary-ink);
-}
-
-.chat__avatar--user {
-  background-color: var(--color-dark);
-  color: #ffffff;
-}
-
-.chat__bubble {
-  max-width: 78%;
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-elevated);
-}
-
-.chat__bubble--user {
-  /* CASPEL green behind white text is 2.2:1 and fails AA, so the visitor's
-     own message sits on brand ink instead. */
-  background-color: var(--color-dark);
-  border-color: var(--color-dark);
-}
-
-.chat__bubble--loading {
-  display: flex;
-  align-items: center;
-  min-height: 40px;
-}
-
 .chat__text {
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.chat__bubble--user .chat__text {
-  color: #ffffff;
 }
 
 /* ── Markdown Renderer Styles ───────────────────────────────── */
@@ -404,21 +350,6 @@
   gap: var(--space-xs);
 }
 
-.chat__suggestion {
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.45;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color     var(--dur-micro) var(--ease-both),
-    background-color var(--dur-micro) var(--ease-both);
-}
-
 @media (hover: hover) and (pointer: fine) {
   .chat__suggestion:hover {
     border-color: var(--color-primary);
@@ -536,6 +467,18 @@
 /* ── Suggested questions ─────────────────────────────────── */
 
 .chat__suggestion {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color     var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both);
   min-height: 44px;
 }
 
@@ -547,84 +490,12 @@
    that. Nothing animates behind an answer being read, and
    nothing keeps running behind a closed dialog.
    ============================================================ */
-.chat__empty {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  padding: var(--space-lg) var(--space-md);
-  border-radius: var(--radius-md);
-}
-
-.chat__ambient {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  /* Decoration must never intercept a tap meant for a control. */
-  pointer-events: none;
-}
-
-.chat__ambient-field {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: var(--radius-full);
-  /* Blur is set once and never animated: animating a filter forces the
-     compositor to re-rasterise the layer every frame. */
-  filter: blur(56px);
-  opacity: 0.5;
-}
-
-.chat__ambient-field--a {
-  top: -110px;
-  left: -60px;
-  background: var(--color-primary-light);
-  animation: ambientDriftA 21s ease-in-out infinite alternate;
-}
-
-.chat__ambient-field--b {
-  right: -80px;
-  bottom: -130px;
-  background: rgba(13, 69, 96, 0.1);
-  animation: ambientDriftB 24s ease-in-out infinite alternate;
-}
-
-/* Transform and opacity only. Both are composited, so the movement costs no
-   layout and no paint; animating position or size would do both, on every
-   frame, on a phone. Amplitude is small on purpose — this should read as the
-   surface being alive, not as a screensaver competing with the text. */
-@keyframes ambientDriftA {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.42;
-  }
-  to {
-    transform: translate3d(26px, 18px, 0) scale(1.06);
-    opacity: 0.55;
-  }
-}
-
-@keyframes ambientDriftB {
-  from {
-    transform: translate3d(0, 0, 0) scale(1.04);
-    opacity: 0.38;
-  }
-  to {
-    transform: translate3d(-22px, -16px, 0) scale(1);
-    opacity: 0.5;
-  }
-}
 
 /* An opaque surface sits between the colour fields and every readable word,
    so contrast is measured against this and does not drift as the fields move. */
 .chat__empty-body {
   position: relative;
-  z-index: 1;
-}
-
-.chat__empty-scope {
-  margin: 0 0 var(--space-md);
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  z-index: var(--z-raised);
 }
 
 .chat__empty .chat__suggested-label {
@@ -632,24 +503,6 @@
   margin-bottom: var(--space-sm);
   color: var(--color-text-muted);
   font-size: 12px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Completely still, not merely fast. A very short loop is still motion in
-     the periphery for someone who asked for none. */
-  .chat__ambient-field {
-    animation: none;
-  }
-
-  .chat__ambient-field--a {
-    transform: translate3d(13px, 9px, 0) scale(1.03);
-    opacity: 0.48;
-  }
-
-  .chat__ambient-field--b {
-    transform: translate3d(-11px, -8px, 0) scale(1.02);
-    opacity: 0.44;
-  }
 }
 
 /* ============================================================
@@ -697,23 +550,23 @@
 }
 
 .modal--chat {
+  height: 100dvh;
+  overflow: hidden;
   position: relative;
   isolation: isolate;
   width: 100%;
   max-width: none;
-  height: 100dvh;
   max-height: 100dvh;
   padding: 0;
   border-radius: 0;
   background-color: #031923;
   color: #ffffff;
   box-shadow: -28px 0 80px rgba(0, 8, 13, 0.28);
-  overflow: hidden;
 }
 
 .modal--chat .modal__header {
   position: relative;
-  z-index: 4;
+  z-index: var(--z-chat-chrome);
   flex: 0 0 auto;
   align-items: center;
   min-height: 76px;
@@ -735,46 +588,131 @@
   font-size: 12px;
 }
 
+/* The size now comes from .modal__close itself. Only what is genuinely
+   different on a dark panel is restated: a circular hairline and light ink. */
 .modal--chat .modal__close {
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--chat-hairline);
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--chat-ink);
 }
 
-.modal--chat .modal__close:hover {
-  border-color: rgba(112, 246, 94, 0.68);
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+/* Guarded, like every other hover in the file. Unguarded, a tap on a phone
+   leaves the close control lit green for the rest of the session. */
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .modal__close:hover {
+    border-color: var(--chat-accent);
+    background-color: var(--chat-surface-raised);
+    color: var(--chat-ink);
+  }
+}
+
+.modal--chat .modal__close:active {
+  background-color: var(--chat-surface-raised);
+  border-color: var(--chat-accent);
 }
 
 .modal--chat .chat__brand { gap: 10px; }
 
+/* Identical to .ai-entry__signal on the landing card: same disc, same ring,
+   same mark. Opening the assistant should read as that card expanding, and a
+   white badge here against a dark badge there broke the connection at the one
+   moment the visitor is looking for it. The old cyan bloom also belonged to
+   the retired palette. */
 .modal--chat .chat__brand-icon {
   width: 38px;
   height: 38px;
   border: 0;
   border-radius: 50%;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 1px rgba(112, 246, 94, 0.42), 0 0 24px rgba(40, 215, 247, 0.2);
+  background-color: var(--chat-surface-raised);
+  box-shadow: inset 0 0 0 1px rgba(111, 209, 103, 0.3);
 }
 
+/* --- The intelligence field -------------------------------------------
+   Structure first, colour second. Five soft fields would blur into a mesh
+   gradient on their own, so the composition is carried by three drawn rings
+   whose asymmetric radii make them read as loops rather than circles. The
+   fields sit behind them as light, not as subject.
+
+   mix-blend-mode: screen on a near-black ground means overlaps ADD, the way
+   coloured light does. Painted overlaps (the default) would muddy toward
+   grey exactly where two colours meet, which is what made the previous pass
+   look like fog. The container isolates so the blend never reaches the page
+   behind the panel (MDN: mix-blend-mode / isolation).
+
+   Blur stays well under each shape's radius. At blur(64px) on a 330px field
+   the Gaussian eats the shape and only a haze survives; keeping the radius
+   dominant preserves a readable core with a soft edge.
+
+   Durations are mutually non-harmonic -- 37s, 43s, 53s, 61s, 71s, 79s -- so
+   no two elements return to phase together and the loop never announces
+   itself. Everything animates transform only (web.dev/animations-guide):
+   rotation of an asymmetric shape is what produces organic movement without
+   touching layout or paint. */
 .chat__ambient {
   position: absolute;
-  z-index: 0;
+  z-index: var(--z-chat-ambient);
   inset: 76px 0 76px;
   overflow: hidden;
   pointer-events: none;
-  background-color: #031923;
+  background-color: var(--chat-surface);
+  /* Confine paint to this box: nothing here can dirty the transcript. */
+  contain: strict;
+  opacity: var(--chat-ambient-idle);
+  transition: opacity var(--dur-panel) var(--ease-both);
+}
+
+/* Conversation state: the atmosphere retreats and holds still. Opacity is the
+   only animated property, and the fields themselves stop rather than continue
+   behind text. */
+.chat__ambient[data-state='receded'] {
+  opacity: var(--chat-ambient-active);
+}
+
+.chat__ambient[data-state='receded'] .chat__ambient-field,
+.chat__ambient[data-state='receded'] .chat__ambient-loop {
+  animation-play-state: paused;
+}
+
+/* A focal well behind the headline. Darkens only the reading area, so the
+   text keeps its contrast while the rest of the field stays saturated --
+   rather than the flat scrim that previously muted the whole composition. */
+/* Grain. Three stops band visibly where a five-stop gradient did not, and a
+   banded blur reads as a cheap render. This is a 6-byte inline SVG turbulence
+   filter tiled by the browser -- no file, no request, no dependency. It sits
+   above the fields and below the focal well so it textures the colour without
+   touching text. */
+.chat__ambient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.36'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
 }
 
 .chat__ambient::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(3, 25, 35, 0.06), rgba(3, 25, 35, 0.42));
+  z-index: var(--z-chat-log);
+  background:
+    radial-gradient(120% 62% at 12% 46%, rgba(4, 24, 26, 0.88) 0%, rgba(4, 24, 26, 0.5) 38%, transparent 68%),
+    linear-gradient(180deg, transparent 55%, rgba(4, 24, 26, 0.55) 100%);
+}
+
+/* On a phone the panel is the full screen, so the reading block sits over the
+   busiest part of the field rather than beside it. The well widens and centres
+   to follow the text instead of the desktop composition. Same art direction,
+   corrected for where the words actually are. */
+@media (max-width: 700px) {
+  .chat__ambient::after {
+    background:
+      radial-gradient(150% 46% at 50% 44%, rgba(4, 24, 26, 0.92) 0%, rgba(4, 24, 26, 0.66) 44%, transparent 78%),
+      linear-gradient(180deg, transparent 62%, rgba(4, 24, 26, 0.6) 100%);
+  }
 }
 
 .chat__ambient-field,
@@ -785,135 +723,149 @@
   pointer-events: none;
 }
 
+/* Promotion is bounded twice: to six elements, and to the state in which they
+   actually move. The layers pause once a conversation starts, and a paused
+   animation still holds its compositor layer — so leaving will-change here
+   unconditionally would keep six promoted layers alive for the whole
+   conversation, which is the cost the pause exists to avoid. */
+.chat__ambient[data-state='idle'] .chat__ambient-field,
+.chat__ambient[data-state='idle'] .chat__ambient-loop {
+  will-change: transform;
+}
+
 .chat__ambient-field {
-  width: 330px;
-  height: 330px;
+  width: 460px;
+  height: 460px;
   border-radius: 44% 56% 67% 33% / 54% 39% 61% 46%;
-  filter: blur(64px);
-  opacity: 0.72;
+  filter: blur(46px);
+  opacity: 0.62;
 }
 
 .chat__ambient-field--a {
-  top: -105px;
-  left: -125px;
-  background-color: var(--color-ai-lime);
-  animation: aiFieldA 10.8s ease-in-out infinite alternate;
+  top: -170px;
+  left: -160px;
+  background-color: var(--color-ai-emerald);
+  animation: aiFieldA 53s ease-in-out infinite alternate;
 }
 
 .chat__ambient-field--b {
-  top: 5%;
-  right: -155px;
-  background-color: var(--color-ai-violet);
-  animation: aiFieldB 13.4s ease-in-out infinite alternate;
+  top: 2%;
+  right: -210px;
+  background-color: var(--color-ai-teal);
+  animation: aiFieldB 71s ease-in-out infinite alternate;
 }
 
 .chat__ambient-field--c {
-  top: 38%;
-  left: 12%;
-  width: 270px;
-  height: 270px;
-  background-color: var(--color-ai-cyan);
-  animation: aiFieldC 9.6s ease-in-out infinite alternate;
+  bottom: -170px;
+  left: -120px;
+  width: 420px;
+  height: 420px;
+  background-color: var(--color-ai-forest);
+  animation: aiFieldC 61s ease-in-out infinite alternate;
 }
 
-.chat__ambient-field--d {
-  right: -105px;
-  bottom: -55px;
-  width: 300px;
-  height: 300px;
-  background-color: var(--color-ai-coral);
-  animation: aiFieldD 12.2s ease-in-out infinite alternate;
-}
-
-.chat__ambient-field--e {
-  left: -105px;
-  bottom: -130px;
-  width: 310px;
-  height: 310px;
-  background-color: var(--color-ai-blue);
-  animation: aiFieldE 14.6s ease-in-out infinite alternate;
-}
-
+/* The rings carry the composition. A thin, lightly blurred border on an
+   asymmetric radius reads as a drawn loop; rotating it tumbles the thick and
+   thin parts of the stroke past each other, which is the organic quality
+   that filled blobs cannot produce. */
 .chat__ambient-loop {
-  width: 410px;
-  height: 250px;
-  border: 24px solid rgba(112, 246, 94, 0.52);
+  width: 430px;
+  height: 300px;
+  border: 14px solid rgba(111, 209, 103, 0.6);
   border-radius: 47% 53% 58% 42% / 42% 61% 39% 58%;
-  filter: blur(13px);
-  opacity: 0.82;
+  filter: blur(7px);
+  opacity: 0.9;
 }
 
 .chat__ambient-loop--a {
-  top: 7%;
-  left: -165px;
-  animation: aiLoopA 17s linear infinite;
+  top: -60px;
+  left: -150px;
+  animation: aiLoopA 37s linear infinite;
 }
 
 .chat__ambient-loop--b {
-  top: 38%;
-  right: -210px;
-  border-color: rgba(139, 101, 255, 0.58);
-  animation: aiLoopB 21s linear infinite reverse;
+  top: 30%;
+  right: -195px;
+  width: 470px;
+  height: 340px;
+  border-width: 16px;
+  border-color: rgba(47, 156, 99, 0.58);
+  animation: aiLoopB 43s linear infinite reverse;
 }
 
 .chat__ambient-loop--c {
-  bottom: -70px;
-  left: -35px;
-  width: 360px;
-  height: 210px;
-  border-color: rgba(40, 215, 247, 0.48);
-  animation: aiLoopC 19s linear infinite;
+  bottom: -130px;
+  left: -110px;
+  width: 400px;
+  height: 275px;
+  border-width: 12px;
+  border-color: rgba(29, 127, 122, 0.62);
+  animation: aiLoopC 79s linear infinite;
 }
 
+/* Fields drift on long, shallow arcs. The rotation component keeps the
+   asymmetric silhouette turning so the shape never settles into a circle. */
 @keyframes aiFieldA {
-  from { transform: translate3d(-20px, -10px, 0) scale(0.88) rotate(-12deg); }
-  to { transform: translate3d(170px, 105px, 0) scale(1.18) rotate(34deg); }
+  from { transform: translate3d(-30px, -20px, 0) scale(0.92) rotate(-14deg); }
+  to   { transform: translate3d(130px, 96px, 0) scale(1.14) rotate(28deg); }
 }
 
 @keyframes aiFieldB {
-  from { transform: translate3d(30px, -20px, 0) scale(1.08) rotate(8deg); }
-  to { transform: translate3d(-180px, 165px, 0) scale(0.82) rotate(-42deg); }
+  from { transform: translate3d(40px, -30px, 0) scale(1.1) rotate(10deg); }
+  to   { transform: translate3d(-120px, 140px, 0) scale(0.86) rotate(-34deg); }
 }
 
 @keyframes aiFieldC {
-  from { transform: translate3d(-110px, 10px, 0) scale(0.72) rotate(-30deg); }
-  to { transform: translate3d(145px, -55px, 0) scale(1.28) rotate(48deg); }
+  from { transform: translate3d(-20px, 40px, 0) scale(1.12) rotate(-20deg); }
+  to   { transform: translate3d(140px, -110px, 0) scale(0.84) rotate(36deg); }
 }
 
-@keyframes aiFieldD {
-  from { transform: translate3d(45px, 45px, 0) scale(0.86) rotate(18deg); }
-  to { transform: translate3d(-185px, -150px, 0) scale(1.12) rotate(-36deg); }
-}
-
-@keyframes aiFieldE {
-  from { transform: translate3d(-30px, 30px, 0) scale(1.16) rotate(-18deg); }
-  to { transform: translate3d(180px, -145px, 0) scale(0.78) rotate(42deg); }
-}
-
+/* Full rotations, each starting at a different angle so the three rings are
+   never parallel. Linear timing: an eased rotation visibly stalls at each
+   end, which reads as mechanical rather than continuous. */
 @keyframes aiLoopA {
-  from { transform: rotate(18deg) scale(0.78); }
-  to { transform: rotate(378deg) scale(1.12); }
+  from { transform: rotate(0deg) scale(1); }
+  to   { transform: rotate(360deg) scale(1.06); }
 }
 
 @keyframes aiLoopB {
-  from { transform: rotate(-54deg) scale(1.08); }
-  to { transform: rotate(306deg) scale(0.72); }
+  from { transform: rotate(214deg) scale(0.96); }
+  to   { transform: rotate(574deg) scale(1.08); }
 }
 
 @keyframes aiLoopC {
-  from { transform: rotate(86deg) scale(0.82); }
-  to { transform: rotate(446deg) scale(1.08); }
+  from { transform: rotate(86deg) scale(1.04); }
+  to   { transform: rotate(446deg) scale(0.94); }
+}
+
+/* Transparent in BOTH states so the ambient layer shows through at whatever
+   opacity it currently holds. The old rule painted #f3f5f1 here, which is what
+   produced a light document the moment a question was asked. */
+.modal--chat .markdown-body,
+.modal--chat .markdown-para,
+.modal--chat .markdown-heading,
+.modal--chat .markdown-list li {
+  color: var(--chat-ink);
+}
+
+.modal--chat .markdown-list-num {
+  color: var(--chat-ink-muted);
+}
+
+.modal--chat .markdown-list-bullet,
+.modal--chat .chat__code {
+  color: var(--chat-accent);
 }
 
 .modal--chat .chat__log {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-chat-log);
   flex: 1 1 auto;
   gap: 0;
   min-height: 0;
   padding: 22px 18px;
-  background-color: #f3f5f1;
-  color: var(--color-text);
+  background-color: transparent;
+  color: var(--chat-ink);
   overflow-x: hidden;
 }
 
@@ -921,22 +873,21 @@
   display: flex;
   justify-content: center;
   padding: 28px 20px;
-  background-color: transparent;
-  color: #ffffff;
   overflow: hidden;
 }
 
 .chat__empty {
   position: relative;
-  z-index: 2;
+  isolation: isolate;
+  overflow: visible;
+  padding: 0;
+  border-radius: 0;
+  z-index: var(--z-chat-log);
   display: flex;
   width: 100%;
   max-width: 520px;
   flex-direction: column;
   justify-content: center;
-  padding: 0;
-  border-radius: 0;
-  overflow: visible;
 }
 
 .chat__empty-heading {
@@ -947,7 +898,7 @@
 .chat__empty-kicker {
   display: block;
   margin-bottom: 8px;
-  color: var(--color-ai-lime);
+  color: var(--chat-accent);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -956,7 +907,7 @@
 
 .chat__empty-scope {
   margin: 0;
-  color: #ffffff;
+  color: var(--chat-ink);
   font-size: clamp(23px, 6vw, 34px);
   font-weight: 590;
   line-height: 1.12;
@@ -996,6 +947,10 @@
   font-size: 14px;
   line-height: 1.35;
   text-align: left;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    border-color     var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
 }
 
 .modal--chat .chat__suggestion:hover {
@@ -1005,7 +960,7 @@
 }
 
 .chat__suggestion-index {
-  color: var(--color-ai-lime);
+  color: var(--chat-accent);
   font-size: 10px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1017,6 +972,9 @@
   font-size: 17px;
 }
 
+/* Assistant turns read as document, separated by a hairline rather than
+   boxed. The visitor's own turn is the one that gets a surface, so the two
+   roles are distinguishable by structure and not by colour alone. */
 .modal--chat .chat__row {
   display: grid;
   max-width: 100%;
@@ -1024,19 +982,20 @@
   align-items: start;
   gap: 12px;
   padding: 18px 0;
-  border-bottom: 1px solid rgba(6, 48, 68, 0.16);
+  border-bottom: 1px solid var(--chat-hairline);
 }
 
 .modal--chat .chat__row--user {
-  padding: 14px 12px;
+  padding: 14px 14px;
   border-bottom: 0;
-  border-left: 3px solid var(--color-primary);
-  background-color: #e7ede4;
+  border-left: 3px solid var(--chat-accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background-color: var(--chat-surface-raised);
 }
 
 .chat__speaker {
   padding-top: 2px;
-  color: var(--color-text-muted);
+  color: var(--chat-ink-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1045,28 +1004,59 @@
 
 .chat__message {
   min-width: 0;
-  color: var(--color-text);
+  color: var(--chat-ink);
 }
 
 .chat__message--loading {
   min-height: 28px;
-  color: var(--color-primary-ink);
+  color: var(--chat-accent);
 }
 
 .modal--chat .chat__text {
-  color: var(--color-text);
+  color: var(--chat-ink);
   font-size: 15px;
 }
 
+/* Sources are the assistant's authority, so they get visible craft rather
+   than a footnote afterthought: an inset panel, the mark in brand green, and
+   page numbers in tabular figures so they align down the column. */
 .modal--chat .chat__sources {
   margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(6, 48, 68, 0.16);
+  padding: 12px 14px;
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--radius-md);
+  background-color: rgba(4, 24, 26, 0.55);
 }
 
+.modal--chat .chat__sources-head {
+  color: var(--chat-accent);
+}
+
+.modal--chat .chat__source:last-child {
+  border-bottom: 0;
+}
+
+.modal--chat .chat__source-doc {
+  color: var(--chat-ink);
+}
+
+.modal--chat .chat__source-page {
+  color: var(--chat-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One definition, at the position the later rule already held. A two-track
+   grid is right here: the document title takes the space it can and the page
+   number keeps its own. Baseline alignment matters because the two runs are
+   set at different sizes. */
 .modal--chat .chat__source {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-md);
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(233, 245, 240, 0.07);
+  color: var(--chat-ink-muted);
 }
 
 .modal--chat .chat__failure {
@@ -1076,7 +1066,7 @@
 
 .modal--chat .chat__composer {
   position: relative;
-  z-index: 4;
+  z-index: var(--z-chat-chrome);
   flex: 0 0 auto;
   gap: 10px;
   margin: 0;
@@ -1085,25 +1075,56 @@
   background-color: #031923;
 }
 
+/* Hairline at rest, accent plus a soft halo on focus.
+   The previous treatment was a hard 2px green outline that sat flush against
+   the field edge and looked like a validation error rather than focus. The
+   ring is a box-shadow so it follows the radius and adds no layout. */
 .modal--chat .chat__input {
   min-width: 0;
-  border-color: rgba(255, 255, 255, 0.24);
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  border: 1px solid var(--chat-hairline);
+  border-radius: var(--radius-sm);
+  background-color: rgba(233, 245, 240, 0.06);
+  color: var(--chat-ink);
+  transition:
+    border-color var(--dur-micro) var(--ease-both),
+    box-shadow   var(--dur-micro) var(--ease-both);
 }
 
-.modal--chat .chat__input::placeholder { color: rgba(255, 255, 255, 0.54); }
+.modal--chat .chat__input::placeholder { color: var(--chat-ink-muted); }
 
-.modal--chat .chat__input:focus { border-color: var(--color-ai-lime); }
+/* focus-within so the ring belongs to the field, not just the raw input. */
+.modal--chat .chat__input:focus,
+.modal--chat .chat__input:focus-visible {
+  border-color: var(--chat-accent);
+  box-shadow: var(--focus-ring-dark);
+  outline: none;
+}
 
+/* Enabled send is the action colour, never a grey glyph. */
 .modal--chat .chat__send {
-  border-radius: 4px;
-  background-color: var(--color-ai-lime);
-  color: #062532;
+  border-radius: var(--radius-sm);
+  background-color: var(--green-500);
+  color: var(--green-on-primary);
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
 }
 
-.modal--chat .chat__send:not(:disabled):hover { background-color: #8bff7b; }
+/* The starter questions are the first thing most visitors touch, and on a
+   dark panel a hover tint alone is close to invisible. The press moves. */
+.modal--chat .chat__suggestion:active {
+  transform: scale(0.99);
+  background-color: var(--chat-surface-raised);
+}
+
+.modal--chat .chat__send:not(:disabled):active {
+  transform: scale(0.94);
+  background-color: var(--green-300);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__send:not(:disabled):hover { background-color: var(--green-300); }
+}
 
 .modal--chat .chat__send:disabled {
   background-color: rgba(255, 255, 255, 0.16);
@@ -1147,16 +1168,28 @@
   }
 }
 
+/* Reduced motion gets a composition, not a pause.
+   These transforms are a chosen frame: the three rings set at angles that
+   read as deliberately arranged rather than caught mid-rotation, and the
+   fields placed so forest, emerald and teal still overlap where the eye lands.
+   Someone who asked for no motion should get the same piece of art-direction
+   as everyone else, simply held still. */
 @media (prefers-reduced-motion: reduce) {
   .chat__ambient-field,
-  .chat__ambient-loop { animation: none !important; }
+  .chat__ambient-loop {
+    animation: none !important;
+    /* Nothing moves here, so nothing needs its own compositor layer.
+       !important because the promotion is set by
+       `.chat__ambient[data-state='idle'] .chat__ambient-field`, which outranks
+       this selector — a media query adds no specificity of its own. */
+    will-change: auto !important;
+  }
 
-  .chat__ambient-field--a { transform: translate3d(70px, 48px, 0) scale(1.02); }
-  .chat__ambient-field--b { transform: translate3d(-80px, 85px, 0) scale(0.92); }
-  .chat__ambient-field--c { transform: translate3d(30px, -18px, 0) scale(1.05); }
-  .chat__ambient-field--d { transform: translate3d(-75px, -68px, 0) scale(0.96); }
-  .chat__ambient-field--e { transform: translate3d(75px, -55px, 0) scale(0.94); }
-  .chat__ambient-loop--a { transform: rotate(84deg) scale(0.92); }
-  .chat__ambient-loop--b { transform: rotate(-18deg) scale(0.88); }
-  .chat__ambient-loop--c { transform: rotate(136deg) scale(0.94); }
+  .chat__ambient-field--a { transform: translate3d(96px, 62px, 0) scale(1.08) rotate(16deg); }
+  .chat__ambient-field--b { transform: translate3d(-70px, 78px, 0) scale(0.98) rotate(-22deg); }
+  .chat__ambient-field--c { transform: translate3d(86px, -74px, 0) scale(1.02) rotate(24deg); }
+
+  .chat__ambient-loop--a { transform: rotate(28deg) scale(1.04); }
+  .chat__ambient-loop--b { transform: rotate(-42deg) scale(1.02); }
+  .chat__ambient-loop--c { transform: rotate(112deg) scale(1); }
 }

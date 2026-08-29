@@ -95,6 +95,83 @@ belongs to `VITE_APP_BASE_PATH` and the host vhost, never to the application:
 - The container nginx is **prefix-agnostic** and serves the SPA at its own root in both modes. Legacy `/ciftis` compatibility lives in the mode-specific host configuration, not in the container.
 - `/api/ready` reports exactly four checks: **database**, **vector extension**, **live AI provider**, **approved corpus**. It returns 503 unless all four pass.
 
+### 2.7. Interface design system
+
+The rules below are load-bearing: each one exists because its absence produced a
+defect that was visible on the stand. They are verified by
+[DESIGN_PASS_VERIFICATION.md](DESIGN_PASS_VERIFICATION.md).
+
+#### The assistant canvas — one surface, two states
+
+**The ambient layer is never unmounted.** It is always present in the DOM and
+carries `data-state`:
+
+| `data-state` | When | Opacity | Animation | Compositor layers |
+|---|---|---|---|---|
+| `idle` | no message has been sent | `--chat-ambient-idle` (1) | running | 6 promoted |
+| `receded` | any message, load or failure exists | `--chat-ambient-active` (0.18) | **paused** | 0 promoted |
+
+This supersedes the earlier rule that removed the layer once a conversation
+began. Unmounting it swapped a saturated dark field for a differently-coloured
+document at the exact moment the visitor committed to using the assistant, and
+the product read as two applications stitched together. The transcript is dark
+in **both** states; only the ambient's presence changes.
+
+It pauses rather than merely dimming, because dimmed motion still moves behind
+long-form text and still holds six promoted compositor layers for the whole
+conversation on an exhibition phone. `will-change` is therefore scoped to
+`[data-state='idle']` — promotion follows the state that actually animates.
+
+Under `prefers-reduced-motion`, the layer stays and holds a chosen static
+composition: the same art direction, held still, with zero running animations
+and zero promoted layers. It is not a 0.01ms loop and it is not removed.
+
+#### Colour
+
+The ambient palette is three brand hues — `--color-ai-forest`,
+`--color-ai-emerald`, `--color-ai-teal` — composited with
+`mix-blend-mode: screen` on `--chat-surface`. The former five-hue set (lime,
+cyan, blue, violet, coral) is **deleted, not deprecated**: an orphaned token is
+an invitation, and purple-blue-on-black is the single loudest generated-template
+tell. Do not reintroduce it, and do not add an iridescent orbit to the mark.
+
+Green is a four-step ramp — `--green-700` / `--green-500` / `--green-300` plus
+`--green-on-primary` — not an ad-hoc green per component.
+
+#### Arrows
+
+One component, [`ActionArrow`](frontend/src/components/ActionArrow.tsx), with two
+semantic variants chosen by **what the control does**, never by how its label
+reads: `internal` for an in-product route, modal or action; `external` for a
+destination that hands the visitor off, **including `mailto:`**. Opening a tab
+and leaving the experience are separate questions and are answered by separate
+flags (`newTab`, `leaves`) — conflating them is what made five of six arrows
+point the wrong way. No literal `→` or `↗` glyph appears in visitor-facing JSX.
+
+#### Focus, targets and motion
+
+- **Focus** is one contract in `global.css`: a `:focus-visible` outline plus a
+  `--focus-ring` box-shadow that follows `border-radius`, with a dark-surface
+  variant. Never remove it per-component.
+- **Targets** are at least `--target-min` (44px). The kiosk draws its own larger
+  controls directly.
+- **Motion** uses only the duration and easing tokens — no literal timings in
+  any transition — and animates transform and opacity. `transition: all` is
+  banned. The ambient's own 37–79s periods are literal and deliberately
+  co-prime, so the composition never visibly repeats.
+
+#### Layering and CJK typography
+
+`z-index` comes from the named scale in `tokens.css` (`--z-decor` through
+`--z-modal`); no magic numbers. The sticky header reserves `--header-height`
+and every `[id]` carries a matching `scroll-margin-top`.
+
+Simplified Chinese is set through `:root:lang(zh-CN)` — at the root, because
+every property involved is inherited and a bare `:lang()` would override each
+component's deliberate leading. It raises line-height, drops letter-spacing and
+uppercase transforms (which do nothing to Han text), and prefers fonts the
+reader already has; no CJK webfont is downloaded.
+
 ---
 
 ## 3. Data Model & Schema

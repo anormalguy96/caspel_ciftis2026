@@ -46,11 +46,19 @@
   --color-primary-light: rgba(81, 183, 72, 0.12);
 
   /* Broader chromatic signals are isolated to the assistant surface. */
-  --color-ai-lime: #70f65e;
-  --color-ai-cyan: #28d7f7;
-  --color-ai-blue: #4388ff;
-  --color-ai-violet: #8b65ff;
-  --color-ai-coral: #ff755c;
+  /* Assistant atmosphere — brand hues only.
+     The previous five-hue set (lime, cyan, blue, violet, coral) was the
+     strongest generated-template signal left in the product: purple and
+     electric blue on near-black is the house style of every AI startup
+     landing page. Three stops drawn from CASPEL's own forest-to-emerald
+     range read as atmosphere belonging to this brand rather than decoration
+     borrowed from that one. */
+  --color-ai-forest: #0c3f30;
+  --color-ai-emerald: #2f9c63;
+  --color-ai-teal: #1d7f7a;
+  /* The former lime/cyan/blue/violet/coral set is deleted rather than left
+     unused. An orphaned token is an invitation: the next person adding an
+     accent reaches for --color-ai-violet because it is still there. */
 
   /* ── Text ─────────────────────────────────────────────── */
   --color-text: #0e2230;      /* 14.9:1 on --color-bg */
@@ -93,6 +101,13 @@
   /* ── Typography ───────────────────────────────────────── */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-feature: 'cv02', 'cv03', 'cv04', 'cv11';
+
+  /* Local and system only. A CJK webfont is several megabytes over exhibition
+     wifi, and a Google-hosted one is unreachable on the mainland. Latin first
+     so CASPEL, ERP and IRISSEA keep Inter's shapes inside Chinese sentences. */
+  --font-body-zh: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Source Han Sans SC', system-ui, sans-serif;
+  --line-height-zh: 1.75;
 }
 
 /* ── Dark surfaces ───────────────────────────────────────────
@@ -108,6 +123,90 @@
 }
 
 /* ============================================================
+   Assistant surface
+   ------------------------------------------------------------
+   The chat is dark in BOTH states. Previously the empty state
+   was a saturated dark field and the conversation was a light
+   grey document, so every visitor crossed an identity change
+   mid-session -- the surface stopped looking like one product.
+   The header and composer were already dark; the light
+   transcript was the outlier, so it is the part that goes.
+   Dark also survives exhibition-hall glare on a standing kiosk.
+   ============================================================ */
+:root {
+  /* Derived from the hero ink rather than pure black: #000 against a
+     forest-green brand reads as a void, not as the same family. */
+  --chat-surface: #04181a;
+  --chat-surface-raised: #0b2528;
+  --chat-hairline: rgba(233, 245, 240, 0.14);
+
+  --chat-ink: #f2f8f5;          /* 15.8:1 on --chat-surface */
+  --chat-ink-muted: #9db3ad;    /*  6.4:1 on --chat-surface */
+
+  /* Brand green lifted for AA on the dark surface. --color-primary
+     (#51b748) measures 4.1:1 here and fails body text. */
+  --chat-accent: #6fd167;       /*  8.2:1 on --chat-surface */
+
+  /* How far the atmosphere retreats once a conversation starts. */
+  --chat-ambient-idle: 1;
+  --chat-ambient-active: 0.18;
+}
+
+/* ============================================================
+   Green ramp
+   ------------------------------------------------------------
+   The action green was #51b748 -- a bright, slightly yellow
+   green that read as a framework default beside the deep
+   forest hero. The ramp below is pulled toward that hero
+   family: deeper, less acid, still unmistakably CASPEL.
+
+   Contrast is measured, not eyeballed. White on the primary
+   action green reaches only 3.1:1 at any green dark enough to
+   look considered, so the primary button carries DARK ink
+   instead -- 10.4:1, and it looks more expensive besides.
+   Deepening the green far enough for white text would have
+   pushed it to near-black and lost the brand.
+   ============================================================ */
+:root {
+  /* Three steps, not four. A --green-900 was declared here and never read:
+     the one surface dark enough to need it is the ambient field, which uses
+     --color-ai-forest at the same value. Two names for one colour is how a
+     ramp starts drifting. */
+  --green-700: #1d6b45;   /* pressed / borders on light */
+  --green-500: #3fa45c;   /* primary action surface */
+  --green-300: #6fd167;   /* accents on dark surfaces */
+
+  /* Ink that actually passes on --green-500. */
+  --green-on-primary: #06251a;   /* 10.4:1 on --green-500 */
+}
+
+/* ============================================================
+   Focus
+   ------------------------------------------------------------
+   One ring, defined once, used by every focusable control on
+   every surface. Applied via :focus-visible so a touch press
+   on the kiosk does not leave a ring stranded behind the
+   visitor's finger, while keyboard focus stays obvious.
+
+   Expressed as box-shadow rather than outline so it can carry
+   a soft low-alpha halo without the hard 2px edge the chat
+   input used to draw, and it follows border-radius.
+   ============================================================ */
+:root {
+  --focus-ring-width: 3px;
+  --focus-ring-color: rgba(63, 164, 92, 0.45);
+  --focus-ring-color-dark: rgba(111, 209, 103, 0.5);
+
+  --focus-ring: 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+  --focus-ring-dark: 0 0 0 var(--focus-ring-width) var(--focus-ring-color-dark);
+
+  /* Minimum effective hit area. The kiosk's own controls are drawn larger
+     still (56px), so they set their size directly rather than through a
+     second token that nothing would read. */
+  --target-min: 44px;
+}
+
+/* ============================================================
    Stacking layers
    ------------------------------------------------------------
    Named so a new overlay is placed by intent rather than by
@@ -116,11 +215,22 @@
    backdrop is always directly beneath its own panel.
    ============================================================ */
 :root {
-  --z-base: 0;
-  --z-sticky-header: 40;
+  --z-raised: 1;          /* in-flow content that must sit above a decorative layer */
+  --z-decor: -1;          /* decoration behind its own content */
   --z-sticky-toolbar: 30;
-  --z-backdrop: 90;
+  --z-header: 40;
+  --z-overlay: 90;        /* modal backdrop */
   --z-modal: 100;
+
+  /* Height reserved by the sticky header, so anchors can clear it. */
+  --header-height: 68px;
+
+  /* Local stack inside the assistant panel. These are not page-level layers --
+     .modal--chat isolates -- so they are named separately to make that
+     boundary explicit rather than implied by size. */
+  --z-chat-ambient: 0;
+  --z-chat-log: 2;
+  --z-chat-chrome: 4;
 }
 
 /* ============================================================
@@ -138,18 +248,25 @@
    webfont would mean several megabytes over exhibition wifi,
    and a Google-hosted one is unreachable on the mainland.
    ============================================================ */
-:lang(zh-CN) {
-  --font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    'Noto Sans CJK SC', 'Source Han Sans SC', system-ui, sans-serif;
+/* Applied at the root, not to every element.
+   Every property here is inherited, so the root is enough to reach the whole
+   document — and it leaves a component free to set its own line-height.
+   A bare `:lang(zh-CN)` matches every descendant too, which would have
+   overridden each component's deliberate leading with the CJK default. */
+:root:lang(zh-CN) {
+  --font-family: var(--font-body-zh);
   --font-feature: normal;
 
   font-feature-settings: normal;
   letter-spacing: normal;
-  line-height: 1.75;
-  /* Keep Latin product names (CASPEL, ERP, IRISSEA) unbroken while still
-     allowing Chinese runs to wrap anywhere, which is correct for Han text. */
+  line-height: var(--line-height-zh);
+  /* Han text may wrap between any two characters, which `normal` already
+     allows. break-word is the fallback for a long unbreakable Latin run and,
+     unlike `anywhere`, it does not shrink min-content width — so the Latin
+     product names (CASPEL, ERP, IRISSEA) stay whole unless nothing else fits,
+     and no flex or grid track silently re-measures. */
   word-break: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   line-break: normal;
 }
 

@@ -67,10 +67,23 @@ button {
    Visible on every interactive element, on both light and dark
    panels. A focus ring that only shows on some controls leaves a
    keyboard visitor guessing where they are. */
+/* One ring for the whole product, from --focus-ring.
+   box-shadow rather than outline: it follows border-radius, and it can carry
+   a soft low-alpha halo instead of the hard 2px edge the chat input drew.
+   :focus-visible, so a touch press on the kiosk does not strand a ring behind
+   the visitor's finger while keyboard focus stays unmistakable. */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-dark);
+  outline: 2px solid var(--green-700);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}
+
+/* Dark surfaces need the lighter ring to clear their background. */
+:where(.modal--chat, .page--landing .landing-stage, .kiosk)
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--green-300);
+  box-shadow: var(--focus-ring-dark);
 }
 
 /* ── Layout shell ────────────────────────────────────────── */
