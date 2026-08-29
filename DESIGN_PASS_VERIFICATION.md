@@ -200,68 +200,128 @@ by test. The former iridescent orbit around it is gone.
 
 ## 6. Stylesheet hygiene
 
-| Category | Baseline `4493370` | After this pass |
-|---|---|---|
-| Duplicate top-level selectors | 10 | **10 — the same ten** |
-| Dead `@keyframes` | 4 | 0 |
-| Custom properties introduced by this pass and never read | 4 | 0 |
-| Literal arrow glyphs in visitor-facing JSX | — | 0 |
-| `transition: all` | — | 0 |
+| Category | `origin/main` `772be7a` | PR baseline `4493370` | Final PR head |
+|---|---|---|---|
+| Duplicate top-level selectors | 51 | 10 | **0** |
+| Dead `@keyframes` | — | 4 | **0** |
+| Custom properties introduced by this pass and never read | — | 4 | **0** |
+| Literal arrow glyphs in visitor-facing JSX | — | — | **0** |
+| `transition: all` | — | — | **0** |
 
-### The duplicate-selector audit had to be rewritten before it could be believed
+### The duplicate-selector audit was wrong twice before it was right
 
-The first version of this audit was line-based, and a line-based check cannot
-tell a real duplicate from a multi-line selector group — in
+This is worth recording in full, because both failures produced a confident
+number that was false, and the second one nearly shipped.
+
+**Attempt one — line-based.** A line-based check cannot tell a real duplicate
+from a multi-line selector group:
 
 ```css
 .chat__ambient-field,
 .chat__ambient-loop {
 ```
 
-the second line also ends in `{` and reads as its own rule. That tool reported
-six duplicates, **all six of them false**, while missing every real one. It was
-replaced with a parser that walks the stylesheet character by character, so a
-rule's selector is whatever text precedes its opening brace however many lines
-it spans, and blocks nested inside an at-rule are excluded as a different
-cascade context.
+The second line also ends in `{` and reads as a rule of its own. That tool
+reported six duplicates, **all six false**, while missing every real one.
 
-The corrected audit found **eleven** real duplicates: ten already present at
-baseline `4493370`, and one introduced by this pass — `.card-link:active`,
-which had a press tint declared in a new block while a `padding-left` rule for
-the same selector already existed.
+**Attempt two — character-level, but comment-blind.** The replacement walked
+the file character by character and stepped over comments while scanning. That
+is not enough. A rule's selector is the text back to the previous `}`, which
+normally includes the section comment above it, so
 
-It was merged into the **existing** rule rather than the new one. Moving the
-selector below the intervening `@media (hover: hover)` block would have flipped
-which of `:hover` (10px) and `:active` (8px) wins during a desktop press:
-the two have equal specificity, so source order decides. Nothing after that
-point sets `background-color` on `.card-link`, so folding the tint upward is
-safe in both directions.
+```css
+/* ── Hero ── */
 
-After the merge the duplicate set is **byte-identical to baseline** — verified
-by diffing the two audit outputs — so this pass introduced none. For scale:
-`origin/main` (`772be7a`) carries 51; the previous commit on this branch
-reduced that to 10.
+.hero__inner { … }
+```
 
-The ten that remain are pre-existing and are **deliberately not touched here**,
-for the same reason as the dead tokens below: de-duplication is a separate
-change with its own risk profile, and the last one needed a computed-geometry
-comparison across the whole page to prove it safe.
+hashed as `/* ── Hero ── */ .hero__inner` and did not match a later plain
+`.hero__inner`. This version reported **five** duplicates and silently missed
+five more. Comments must be blanked out of the captured selector text, not
+merely stepped over.
 
-`:root` is excluded from the count. It is opened once per concern — palette,
-green ramp, focus, targets, layering — each block with its own rationale, which
-is a documented convention rather than an accidental redefinition.
+**Attempt three — correct.** Comments are blanked in a string-aware pre-pass
+that preserves byte offsets, then a string-aware brace scan collects top-level
+selector lists. Blocks nested in an at-rule are excluded as a different cascade
+context, and selector parts are order- and whitespace-normalised so `.a, .b`
+matches `.b,\n.a`. This found **eleven** real duplicates: ten present at
+baseline `4493370`, plus one introduced by the design pass
+(`.card-link:active`).
 
-**Three further findings are recorded and deliberately not acted on**, because they
-pre-date this pass and fixing them is not a design change:
+All eleven are now consolidated. The final count is **zero**, and the parser
+plus eleven fixtures live in `frontend/src/tests/DesignSystem.test.tsx` so the
+count cannot drift back — including fixtures for each of the two failure modes
+above, so neither broken algorithm can be reintroduced without a red test.
+
+### How the ten were consolidated
+
+Every merge landed in the **later** rule, because in every case the later rule
+is what already wins. Two of them make the reason concrete:
+
+- **`.site-header__logo`.** Two `@media` height overrides (26px at ≤400px,
+  36px at ≥768px) sit between the two rules. Both are dead: `height: 28px` is
+  declared after them at equal specificity. Merging *upward* would have revived
+  them and changed the rendered height at two breakpoints. Measured at 768px
+  after the merge: 28px, not 36px.
+- **`.cta__btn`.** The two top-level rules were byte-identical, so neither
+  position could change anything — but there are *two* `@media (min-width:
+  900px)` blocks naming this selector, one before the consolidated rule and one
+  after. The later one is live: `.cta__btn` computes to `0 0 auto` at ≥900px
+  and `1 1 240px` below it, before and after.
+
+`:root` is excluded from the count and from the test. It is opened once per
+concern — palette, green ramp, focus, targets, layering — each block with its
+own rationale, which is a documented convention rather than an accidental
+redefinition.
+
+### Behaviour preservation
+
+The corrected build was compared against committed `f050a2e` by reading
+computed styles and geometry from both, under emulated
+`prefers-reduced-motion` so nothing was captured mid-animation.
+
+**10 surfaces** — 320×568, 390×844, 768×1024, 1280×800, 1440×900, each in
+English and Simplified Chinese — covering both header logos, hero geometry,
+landing-section spacing, CTA geometry, the language-switch hover state on both
+hover-capable viewports, CASPEL AI entry spacing, the suggestions label and
+suggestion row, all four product-card row heights, horizontal overflow and the
+console.
+
+**Computed-style differences: 0. Console errors: 0 before, 0 after.**
+
+Spot values on the corrected build (English, 1280×800):
+
+| Element | Value |
+|---|---|
+| `.site-header__logo` | `display: block`, `width: auto`, height 28px |
+| `.site-header__ciftis-logo` | `display: block`, `width: auto`, height 32px, `object-fit: contain`, `margin-left: 3px` |
+| `.hero__inner` | `max-width: 1180px` (`--layout-max`) |
+| `.landing__section` | `margin-bottom: 56px` |
+| `.cta__text` | `max-width: 540px` (54ch) |
+| `.cta__btn` | `flex: 0 0 auto` at ≥900px, `1 1 240px` below |
+| `.lang-switch__option:hover` | `color: rgb(14, 34, 48)`, `background: rgba(0, 0, 0, 0)` |
+| `.ai-entry` | `margin: 0px 0px 0px 0px` |
+| `.ai-entry__suggestions-label` | `font-size: 12px`, `color: rgba(255, 255, 255, 0.48)` |
+| `.ai-entry__suggestion-row` | `display: flex`, `flex-wrap: wrap`, `gap: 16px` |
+| `.card-link` × 4 | 82px each |
+| horizontal overflow | 0 |
+
+**Two findings are recorded and deliberately not acted on**, because they
+pre-date this work and removing them is a cleanup rather than a cascade fix.
+Neither has been removed:
 
 - `--shadow-xs`, `--color-dark-surface`, `--color-dark-text-muted` are declared
   and never read.
 - Roughly two dozen class families are styled but never rendered — `ai-banner*`,
   `state-notice*`, `chat__chip(s)`, `u-card*`, `btn--accent`, `btn--onDark`.
-  (The audit's orphan list also contains false positives: `action-arrow--sm`,
+  (The orphan list also contains false positives: `action-arrow--sm`,
   `action-arrow--md` and `chat__row--user` are built from template strings.)
-- Hex literals outside `tokens.css` are almost entirely `#ffffff`, plus three
-  brand darks.
+
+A third observation, also left alone: consolidating exposed several `@media`
+rules that have never applied, because a later top-level declaration at equal
+specificity supersedes them — the two logo heights above, and one of the two
+`.cta__btn` blocks. Deleting them would be behaviour-neutral but is outside
+this correction.
 
 ### Two regressions this pass introduced and then removed
 
@@ -285,11 +345,15 @@ Recorded because they are the kind that ships silently:
 
 | Check | Result |
 |---|---|
-| `tsc --noEmit` (app + node configs) | pass |
-| Vitest | **153 passed / 153**, 11 files |
+| `npm ci` from the committed lockfile | pass; lockfile unchanged by the install |
+| `tsc --noEmit -p tsconfig.json` | pass |
+| `tsc --noEmit -p tsconfig.node.json` | pass |
+| Vitest | **173 passed / 173**, 11 files |
 | Mode A build (`VITE_APP_BASE_PATH=/`) | pass — assets at `/assets/…` |
 | Mode B build (`VITE_APP_BASE_PATH=/ciftis/`) | pass — assets at `/ciftis/assets/…` |
 | `git diff --check` | clean |
+| Duplicate top-level selectors | **0** |
+| Dead `@keyframes` | **0** |
 | `caspel-icon.svg` SHA256 | `72702e76…17353750`, unchanged |
 
 New tests added by this pass:
@@ -305,3 +369,16 @@ New tests added by this pass:
 - Landing card and assistant header share one mark asset; no orbit decoration.
 - Overlay opens from the keyboard, locks the page, and restores focus to the
   exact invoker.
+- **The stylesheet cascade audit**: no top-level selector is defined twice in
+  any of the seven application stylesheets, plus eleven parser fixtures. The
+  fixtures pin both algorithms that previously got this wrong — a multi-line
+  selector group must not read as its own rule, and a section comment must be
+  stripped from the selector it precedes — along with braces and `/*` inside
+  strings, escaped quotes, at-rule contexts staying distinct, resuming
+  correctly after a nested at-rule block, selector-part order, and the `:root`
+  exemption. A separate fixture proves a genuine non-`:root` duplicate is still
+  reported, so the exemption cannot swallow real findings.
+
+The audit was checked against a deliberately reintroduced duplicate before
+being trusted: adding a second `.hero__inner` rule to `components.css` turned
+two tests red and named the offending selector.
