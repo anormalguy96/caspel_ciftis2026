@@ -1295,7 +1295,10 @@
 
 /* Every primary control in this bar clears the 44px target minimum. */
 .viewer-bar__back,
-.viewer-bar__ai,
+.viewer-bar__ai {
+  min-height: var(--target-min);
+}
+
 @media (max-width: 700px) {
   .viewer-bar__inner {
     flex-wrap: wrap;
