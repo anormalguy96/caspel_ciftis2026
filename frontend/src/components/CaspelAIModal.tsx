@@ -238,8 +238,12 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
             </div>
           )}
 
-          {messages.map((msg) => (
-            <div key={msg.id} className={`chat__row chat__row--${msg.role}`}>
+          {messages.map((msg, index) => (
+            <div
+              key={msg.id}
+              className={`chat__row chat__row--${msg.role}`}
+              style={{ ['--msg-index' as string]: index }}
+            >
               <span className="chat__speaker">
                 {msg.role === 'assistant' ? t('ai.title') : t('ai.youLabel')}
               </span>

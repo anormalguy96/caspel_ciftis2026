@@ -123,18 +123,19 @@
     border-color var(--dur-micro) var(--ease-both),
     background-color var(--dur-micro) var(--ease-both),
     color var(--dur-micro) var(--ease-both),
-    box-shadow var(--dur-micro) var(--ease-both),
-    transform var(--dur-tap) var(--ease-out);
+    box-shadow var(--dur-ui) var(--ease-out-expo),
+    transform var(--dur-tap) var(--ease-spring);
 }
 
 .demo-pill:active {
-  transform: scale(0.98);
+  transform: scale(0.975);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .demo-pill:hover:not(.demo-pill--active) {
     border-color: rgba(81, 183, 72, 0.4);
     color: var(--color-text);
+    transform: translate3d(0, -1px, 0);
   }
 }
 
@@ -148,7 +149,7 @@
   transition:
     background-color var(--dur-micro) var(--ease-both),
     border-color var(--dur-micro) var(--ease-both),
-    transform var(--dur-micro) var(--ease-both);
+    transform var(--dur-ui) var(--ease-spring);
 }
 
 .demo-pill--active {
@@ -162,7 +163,7 @@
 .demo-pill--active .demo-pill__indicator {
   background-color: var(--color-primary);
   border-color: var(--color-primary);
-  transform: scale(1.2);
+  transform: scale(1.25);
 }
 
 .field__select {
@@ -210,12 +211,15 @@
 .modal__success-icon {
   margin-bottom: var(--space-xs);
   color: var(--color-success);
+  animation: successBounce 500ms var(--ease-spring) both;
 }
 
 .modal__success-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--color-text);
+  animation: messageIn var(--dur-panel) var(--ease-out-expo) both;
+  animation-delay: 80ms;
 }
 
 .modal__success-text {
@@ -224,6 +228,8 @@
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text-secondary);
+  animation: messageIn var(--dur-panel) var(--ease-out-expo) both;
+  animation-delay: 140ms;
 }
 
 /* ── Chat ────────────────────────────────────────────────── */
@@ -1022,11 +1028,12 @@
   transition:
     background-color var(--dur-micro) var(--ease-both),
     border-color     var(--dur-micro) var(--ease-both),
-    transform        var(--dur-tap)   var(--ease-out);
+    padding-left     var(--dur-ui)    var(--ease-spring),
+    transform        var(--dur-tap)   var(--ease-spring);
 }
 
 .modal--chat .chat__suggestion:hover {
-  padding-left: 8px;
+  padding-left: 10px;
   border-color: rgba(255, 255, 255, 0.3);
   color: #ffffff;
 }
@@ -1055,6 +1062,8 @@
   gap: 12px;
   padding: 18px 0;
   border-bottom: 1px solid var(--chat-hairline);
+  animation: messageIn var(--dur-panel) var(--ease-out-expo) both;
+  animation-delay: calc(var(--msg-index, 0) * 45ms);
 }
 
 .modal--chat .chat__row--user {
@@ -1185,7 +1194,7 @@
 /* The starter questions are the first thing most visitors touch, and on a
    dark panel a hover tint alone is close to invisible. The press moves. */
 .modal--chat .chat__suggestion:active {
-  transform: scale(0.99);
+  transform: scale(0.98);
   background-color: var(--chat-surface-raised);
 }
 
