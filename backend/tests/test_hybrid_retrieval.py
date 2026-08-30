@@ -250,3 +250,75 @@ async def test_retrieval_never_logs_the_question(caplog):
         result = await RetrievalService.retrieve(db=None, query=secret_question)
     assert result == []
     assert "zzsecretzz" not in caplog.text
+
+
+# ==========================================================================
+# Public citation contract
+# ==========================================================================
+
+class _Rec:
+    def __init__(self, document, page, product, score=0.8):
+        self.document = document
+        self.page = page
+        self.product = product
+        self.score = score
+
+
+def _sources(records):
+    from app.rag.service import _build_public_sources
+    return _build_public_sources(records)
+
+
+def test_citation_carries_the_registry_slug():
+    out = _sources([_Rec("CASPEL Corporate Presentation", 7, "caspel")])
+    assert len(out) == 1
+    assert out[0].slug == "caspel"
+    assert out[0].page == 7
+
+
+def test_citation_for_an_unregistered_product_is_dropped():
+    # PMS and IRISSEA have no approved document, so nothing can cite them.
+    assert _sources([_Rec("Caspel PMS", 3, "pms")]) == []
+    assert _sources([_Rec("IRISSEA", 1, "irissea")]) == []
+
+
+def test_citation_past_the_end_of_the_document_is_dropped():
+    # Corporate is 24 pages; ERP is 41.
+    assert _sources([_Rec("CASPEL Corporate Presentation", 25, "caspel")]) == []
+    assert _sources([_Rec("CASPEL ERP Presentation", 42, "erp")]) == []
+
+
+def test_citation_page_zero_or_negative_is_dropped():
+    assert _sources([_Rec("CASPEL Corporate Presentation", 0, "caspel")]) == []
+    assert _sources([_Rec("CASPEL Corporate Presentation", -1, "caspel")]) == []
+
+
+def test_last_valid_page_is_kept():
+    assert len(_sources([_Rec("CASPEL Corporate Presentation", 24, "caspel")])) == 1
+    assert len(_sources([_Rec("CASPEL ERP Presentation", 41, "erp")])) == 1
+
+
+def test_duplicate_slug_and_page_collapse():
+    out = _sources([
+        _Rec("CASPEL ERP Presentation", 4, "erp"),
+        _Rec("CASPEL ERP Presentation", 4, "erp"),
+        _Rec("CASPEL ERP Presentation", 5, "erp"),
+    ])
+    assert [(s.slug, s.page) for s in out] == [("erp", 4), ("erp", 5)]
+
+
+def test_citation_order_is_preserved():
+    out = _sources([
+        _Rec("CASPEL ERP Presentation", 9, "erp"),
+        _Rec("CASPEL Corporate Presentation", 2, "caspel"),
+    ])
+    assert [s.page for s in out] == [9, 2]
+
+
+def test_citation_never_contains_a_url_or_path():
+    out = _sources([_Rec("CASPEL Corporate Presentation", 7, "caspel")])
+    dumped = out[0].model_dump()
+    assert set(dumped) == {"document", "product", "page", "slug", "score"}
+    for value in dumped.values():
+        assert "http" not in str(value).lower()
+        assert "/" not in str(value) and "\\" not in str(value)

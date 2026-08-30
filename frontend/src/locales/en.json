@@ -93,7 +93,14 @@
     "searching": "Searching published presentation material",
     "sendLabel": "Send question",
     "inputLabel": "Your question for CASPEL AI",
-    "youLabel": "You"
+    "youLabel": "You",
+    "citationLabel": "{{document}}, page {{page}}",
+    "pageLabel": "page {{page}}",
+    "slidePreviewUnavailable": "Preview unavailable",
+    "copyAnswer": "Copy answer",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the text to copy it manually.",
+    "sourcesHeading": "Sources"
   },
   "aiEntry": {
     "label": "CASPEL AI",

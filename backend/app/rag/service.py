@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.presentations import file_sha256
+from app.core.presentations import PRESENTATIONS, file_sha256
 from app.models.entities import ChatMessage, ChatSession, Document, DocumentChunk
 from app.rag.embeddings import embedding_service
 from app.rag.errors import RagError
@@ -16,6 +16,45 @@ from app.rag.retrieval import retrieval_service
 from app.schemas.schemas import ChatResponse, ChatSource
 
 logger = logging.getLogger(__name__)
+
+
+def _build_public_sources(records) -> List[ChatSource]:
+    """Turn verified retrieval records into de-duplicated, linkable citations.
+
+    Anything whose slug is not registered, or whose page falls outside the
+    approved document's real page count, is dropped rather than repaired. A
+    citation the client cannot open is worse than one fewer citation.
+    """
+    seen: set = set()
+    out: List[ChatSource] = []
+
+    for record in records:
+        slug = (record.product or "").strip().lower() or None
+        spec = PRESENTATIONS.get(slug) if slug else None
+
+        if spec is None or not spec.is_registered:
+            logger.warning("Dropping citation for unregistered slug")
+            continue
+        if not isinstance(record.page, int) or record.page < 1 or record.page > spec.page_count:
+            logger.warning("Dropping citation with an out-of-range page")
+            continue
+
+        key = (slug, record.page)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        out.append(
+            ChatSource(
+                document=record.document,
+                product=record.product,
+                page=record.page,
+                slug=slug,
+                score=record.score,
+            )
+        )
+
+    return out
 
 
 class RagService:
@@ -189,15 +228,16 @@ class RagService:
 
         # Only citations the server could verify against what was actually
         # retrieved. A title or page the model wrote itself never gets here.
-        sources = [
-            ChatSource(
-                document=record.document,
-                product=record.product,
-                page=record.page,
-                score=record.score,
-            )
-            for record in result.sources
-        ]
+        #
+        # Two further guarantees are added on the way out, because these
+        # citations become clickable deep links in the client:
+        #
+        #   * the slug must be a registered presentation, and the page must be
+        #     inside that document's real page count, so a link can never point
+        #     at a missing document or a page past the end of it;
+        #   * repeated slug/page pairs collapse, so an answer that cites the
+        #     same slide three times shows one citation rather than three.
+        sources = _build_public_sources(result.sources)
 
         return ChatResponse(answer=result.answer, sources=sources, session_id=session_id)
 

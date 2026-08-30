@@ -1274,3 +1274,113 @@
   .chat__ambient-loop--b { transform: rotate(-42deg) scale(1.02); }
   .chat__ambient-loop--c { transform: rotate(112deg) scale(1); }
 }
+
+/* ============================================================
+   Grounded citations
+   ------------------------------------------------------------
+   A citation is a control, not a footnote: it opens the approved
+   document at the exact cited page. It is sized and stated like
+   one, and the slide thumbnail beneath it is the same page the
+   link goes to, rendered from the same verified stream.
+   ============================================================ */
+.modal--chat .chat__source-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  /* Full 44px target while the visible text stays at its own size. */
+  min-height: var(--target-min);
+  padding: var(--space-sm) 0;
+  color: var(--chat-ink);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__source-link:hover {
+    color: var(--chat-accent);
+  }
+
+  .modal--chat .chat__source-link:hover .chat__source-doc {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.modal--chat .chat__source-link:active {
+  transform: scale(0.99);
+  background-color: var(--chat-surface-raised);
+}
+
+.modal--chat .chat__source-figure {
+  display: block;
+  margin-top: var(--space-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  /* Reserve the slide's shape before it renders, so an arriving thumbnail
+     never pushes the rest of the transcript down. */
+  aspect-ratio: 16 / 9;
+  inline-size: min(220px, 100%);
+  background-color: var(--chat-surface-raised);
+  box-shadow: inset 0 0 0 1px var(--chat-hairline);
+  position: relative;
+}
+
+.modal--chat .chat__source-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+
+.modal--chat .chat__source[data-state='ready'] .chat__source-canvas {
+  opacity: 1;
+}
+
+.modal--chat .chat__source-thumbstate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-sm);
+  color: var(--chat-ink-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* A quiet shimmer while the page is being fetched and drawn. It is a real
+   wait -- a range request plus a render -- so the slot says so. */
+.modal--chat .chat__source[data-state='loading'] .chat__source-thumbstate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(233, 245, 240, 0.06) 50%,
+    transparent 80%
+  );
+  animation: sourceThumbShimmer 1.4s var(--ease-both) infinite;
+}
+
+@keyframes sourceThumbShimmer {
+  from { transform: translate3d(-100%, 0, 0); }
+  to   { transform: translate3d(100%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal--chat .chat__source[data-state='loading'] .chat__source-thumbstate::before {
+    animation: none;
+    background: rgba(233, 245, 240, 0.04);
+  }
+
+  .modal--chat .chat__source-canvas {
+    transition: none;
+  }
+}

@@ -48,9 +48,24 @@ class ChatRequest(BaseModel):
 
 
 class ChatSource(BaseModel):
+    """One citation, entirely server-owned.
+
+    `slug` is the presentation-registry key, not something the model wrote. It
+    is what lets the client build a deep link to the exact cited page without
+    the server ever handing out a URL or a filesystem path -- a model-authored
+    URL is the one thing a grounded citation must never contain.
+
+    A source is only emitted when its slug is registered and its page is inside
+    that document's real page count, so a link built from these fields cannot
+    point at a document that does not exist or a page that is not there.
+    """
+
     document: str
     product: Optional[str] = None
     page: int
+    #: Presentation registry slug, e.g. "caspel" or "erp".
+    slug: Optional[str] = None
+    #: Retrieval similarity. Internal signal, not shown to visitors.
     score: Optional[float] = None
 
 

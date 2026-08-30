@@ -22,6 +22,8 @@ export interface ChatSource {
   document: string;
   product?: string;
   page: number;
+  /** Presentation registry slug, supplied and validated by the server. */
+  slug?: string;
   score?: number;
 }
 

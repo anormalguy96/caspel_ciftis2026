@@ -31,6 +31,18 @@ interface PdfViewerProps {
   /** Shown in the error state so a visitor is never left at a dead end. */
   onDownload?: () => void;
   onPageCountChange?: (count: number) => void;
+  /**
+   * Page to bring into view once the document has loaded, from an assistant
+   * citation deep link.
+   *
+   * Already parsed and range-checked by the caller; it is clamped again here
+   * against the document's own page count, because the registry and the file
+   * are two different sources of truth and only the file can be final.
+   *
+   * Applied once per document load, not on every render: re-scrolling after
+   * the visitor has started reading would take the page away from them.
+   */
+  focusPage?: number | null;
 }
 
 interface PageCanvasProps {
@@ -150,7 +162,12 @@ const PageCanvas: React.FC<PageCanvasProps> = ({
   );
 };
 
-export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCountChange }) => {
+export const PdfViewer: React.FC<PdfViewerProps> = ({
+  url,
+  onDownload,
+  onPageCountChange,
+  focusPage = null,
+}) => {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -296,6 +313,45 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, onDownload, onPageCou
     () => (doc ? Array.from({ length: doc.numPages }, (_, i) => i + 1) : []),
     [doc]
   );
+
+  /**
+   * Bring a cited page into view once, after the document has loaded.
+   *
+   * Waiting for  matters: the page elements do not exist until the
+   * document reports its page count, so scrolling earlier would find nothing
+   * and silently do nothing. The highlight is a brief data attribute rather
+   * than a persistent style, so the page is pointed at and then left alone.
+   */
+  useEffect(() => {
+    if (!doc || !focusPage) return undefined;
+
+    const target = Math.min(Math.max(1, Math.floor(focusPage)), doc.numPages);
+    let highlightTimer: number | undefined;
+
+    // One frame, so the page nodes are laid out before we measure them.
+    const frame = requestAnimationFrame(() => {
+      const node = scrollRef.current?.querySelector<HTMLElement>(`[data-page="${target}"]`);
+      if (!node) return;
+
+      const reduced =
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      node.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      setCurrentPage(target);
+
+      node.dataset.cited = 'true';
+      highlightTimer = window.setTimeout(() => {
+        delete node.dataset.cited;
+      }, 2200);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (highlightTimer) window.clearTimeout(highlightTimer);
+    };
+    // Deliberately keyed on the document identity and the requested page only.
+    // Adding zoom or currentPage here would yank the view back mid-read.
+  }, [doc, focusPage]);
 
   if (state === 'error') {
     return (

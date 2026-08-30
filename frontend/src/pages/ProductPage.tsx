@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Calendar, AlertTriangle, RotateCw } from 'lucide-r
 import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { PdfViewer } from '../components/PdfViewer';
+import { parsePageParam } from '../utils/citationLink';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
 import { useProduct } from '../config/products';
@@ -31,6 +32,19 @@ export const ProductPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
+  /**
+   * A page requested by an assistant citation deep link.
+   *
+   * Parsed defensively: anything that is not a small positive integer becomes
+   * null and the viewer opens normally, rather than throwing or scrolling to
+   * somewhere arbitrary. The viewer clamps it again against the real page
+   * count, which is the only authority on how long the document is.
+   */
+  const citedPage = React.useMemo(
+    () => parsePageParam(new URLSearchParams(location.search).get('page')),
+    [location.search]
+  );
   const { t } = useTranslation();
 
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
@@ -173,6 +187,7 @@ export const ProductPage: React.FC = () => {
 
         {status === 'ready' && isAvailable && (
           <PdfViewer
+            focusPage={citedPage}
             url={product.presentationUrl}
             onDownload={handleDownload}
             onPageCountChange={setPageCount}
