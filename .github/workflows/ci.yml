@@ -112,6 +112,23 @@ jobs:
           VITE_DISPLAY_RESET_SECONDS: '25'
         run: npm run build
 
+      # The budget reads the emitted build, so it can only run once one exists.
+      # In the Test step above there is no dist/ yet and the suite skips it --
+      # which is worse than not having the check, because the run stays green
+      # while nothing is enforced. Mode A is rebuilt here so the numbers belong
+      # to the mode the budget was recorded against.
+      - name: Build — Mode A again for the bundle budget
+        working-directory: frontend
+        env:
+          VITE_APP_BASE_PATH: /
+          VITE_PUBLIC_URL: https://ciftis.caspel.com
+          VITE_DISPLAY_RESET_SECONDS: '25'
+        run: npm run build
+
+      - name: Bundle budget
+        working-directory: frontend
+        run: npx vitest run src/tests/BundleBudget.test.ts --reporter=verbose
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-latest

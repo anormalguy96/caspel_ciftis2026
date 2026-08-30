@@ -56,6 +56,23 @@ function initialAssets(dist: string): { js: string[]; css: string[] } {
 const bytes = (dist: string, name: string) => statSync(join(dist, 'assets', name)).size;
 
 const dist = findDist();
+/**
+ * These read the emitted build, so they can only run once one exists. Locally
+ * that means building first; in CI there is a dedicated step after the Mode A
+ * build.
+ *
+ * The skip is announced rather than silent. A silently skipped budget keeps
+ * the run green while enforcing nothing, which is exactly how this check was
+ * passing in CI without ever executing.
+ */
+if (!dist) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[bundle-budget] no dist/ found - budget NOT enforced in this run. ' +
+      'Build the frontend first to enforce it.'
+  );
+}
+
 const describeIfBuilt = dist ? describe : describe.skip;
 
 describeIfBuilt('initial bundle budget', () => {
