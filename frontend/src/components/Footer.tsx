@@ -36,7 +36,7 @@ export const Footer: React.FC = () => {
 
   return (
     <footer className="site-footer">
-      <div className="container site-footer__inner">
+      <div className="container site-footer__inner u-scroll-reveal-subtle">
         <div className="site-footer__brand">
           <div className="site-footer__logos">
             <img src={caspelLogo} alt="CASPEL" className="site-footer__logo" width={168} height={40} loading="lazy" />

@@ -98,7 +98,7 @@ export const ProductPage: React.FC = () => {
             <span>{t('actions.back')}</span>
           </button>
 
-          <div className="viewer-bar__identity">
+          <div className="viewer-bar__identity u-page-enter">
             <span
               className="viewer-bar__name"
               style={{ viewTransitionName: `product-title-${product.slug}` } as React.CSSProperties}
@@ -147,7 +147,7 @@ export const ProductPage: React.FC = () => {
         </div>
       </div>
 
-      <main className="viewer-main">
+      <main className="viewer-main u-page-enter" style={{ '--i': 1 } as React.CSSProperties}>
         {status === 'loading' && (
           <div className="viewer-status">
             <p className="viewer-status__text" role="status">

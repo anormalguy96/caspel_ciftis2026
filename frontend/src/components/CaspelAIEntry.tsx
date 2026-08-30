@@ -33,7 +33,7 @@ export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
   const suggestions = t('aiEntry.suggestions', { returnObjects: true }) as string[];
 
   return (
-    <section className="ai-entry" aria-labelledby="ai-entry-heading">
+    <section className="ai-entry u-page-enter" aria-labelledby="ai-entry-heading" style={{ '--i': 3 } as React.CSSProperties}>
       <button type="button" className="ai-entry__prompt" onClick={() => onAsk()}>
         {/* The same duotone badge the chat header uses, so opening the
             assistant reads as this card expanding rather than a new surface. */}

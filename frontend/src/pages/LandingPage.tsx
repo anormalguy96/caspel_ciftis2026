@@ -69,7 +69,7 @@ export const LandingPage: React.FC = () => {
 
         <div className="container landing__body">
           <section aria-labelledby="solutions-heading" className="landing__section">
-            <h2 id="solutions-heading" className="section-label">
+            <h2 id="solutions-heading" className="section-label u-scroll-reveal-subtle">
               {t('landing.solutions')}
             </h2>
             <div className="landing__cards">
@@ -79,7 +79,7 @@ export const LandingPage: React.FC = () => {
             </div>
           </section>
 
-          <section className="cta" aria-labelledby="cta-heading">
+          <section className="cta u-scroll-reveal" aria-labelledby="cta-heading">
             <div className="cta__text">
               <h2 id="cta-heading" className="cta__title">
                 {t('cta.title')}

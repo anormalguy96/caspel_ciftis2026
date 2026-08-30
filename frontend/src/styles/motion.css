@@ -80,6 +80,52 @@
   50%      { opacity: 0.55; }
 }
 
+/* ── Scroll-reveal keyframes ───────────────────────────────────
+   Linked to animation-timeline: view() — progress-driven, not
+   time-driven. The visitor's scroll speed IS the easing.
+   ────────────────────────────────────────────────────────────── */
+
+@keyframes scrollReveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes scrollRevealSubtle {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes scrollScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Page-entrance keyframes ───────────────────────────────────
+   Time-based (not scroll-linked). Staggered via --i variable.
+   Used for above-the-fold hero content on fresh navigation.
+   ────────────────────────────────────────────────────────────── */
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Parallax drift keyframe ──────────────────────────────────
+   Linked to animation-timeline: scroll() on the landing stage.
+   A very small translateY so the organic shapes drift at a
+   different rate than the page — subtle depth, not a carnival.
+   ────────────────────────────────────────────────────────────── */
+
+@keyframes parallaxDriftSlow {
+  from { transform: rotate(17deg) translateY(0); }
+  to   { transform: rotate(17deg) translateY(-40px); }
+}
+
+@keyframes parallaxDriftFast {
+  from { transform: rotate(-22deg) translateY(0); }
+  to   { transform: rotate(-22deg) translateY(-25px); }
+}
+
 
 /* ============================================================
    UTILITY CLASSES
@@ -217,6 +263,85 @@
 @media (max-width: 700px) {
   /* Full-screen sheet: the card sits above it, so grow from the top. */
   .modal--chat.u-panel { transform-origin: top center; }
+}
+
+/* ============================================================
+   PAGE-ENTRANCE ANIMATIONS — time-based stagger
+   ------------------------------------------------------------
+   For above-the-fold content that cannot be scroll-revealed
+   because it is already visible on page load. The hero title,
+   subtitle and AI entry stagger in with --i delay indices.
+
+   The animation plays once on mount and fills forward, so the
+   elements settle at their natural position and never replay.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .u-page-enter {
+    animation: pageEnter 500ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+}
+
+/* ============================================================
+   SCROLL-DRIVEN ANIMATIONS — CSS animation-timeline: view()
+   ------------------------------------------------------------
+   Linked to viewport entry, not time. The scroll position IS
+   the playback head: scrub backward, the animation reverses.
+
+   Every class below is double-gated behind @supports and
+   prefers-reduced-motion. Unsupported browsers and
+   motion-sensitive users get instant, fully-visible content.
+   ============================================================ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* ── Section-level reveal ─────────────────────────────── */
+    .u-scroll-reveal {
+      animation: scrollReveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+
+    /* ── Subtle reveal for smaller elements ────────────────── */
+    .u-scroll-reveal-subtle {
+      animation: scrollRevealSubtle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+
+    /* ── Scale-in for cards and panels ─────────────────────── */
+    .u-scroll-scale {
+      animation: scrollScaleIn linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+
+    /* ── Landing-stage organic shapes: subtle parallax ─────
+       The blobs drift at a different rate than the page content,
+       creating depth without affecting readability. The effect
+       is invisible on first load (shapes are at their starting
+       position) and only activates during scroll.
+       ─────────────────────────────────────────────────────── */
+    .landing-stage::before {
+      animation: parallaxDriftSlow linear both;
+      animation-timeline: scroll();
+      animation-range: 0% 100%;
+    }
+
+    .landing-stage::after {
+      animation: parallaxDriftFast linear both;
+      animation-timeline: scroll();
+      animation-range: 0% 100%;
+    }
+
+    /* ── Card-link arrow line: grow on scroll entry ────────── */
+    .card-link__arrow-line {
+      transform-origin: right center;
+      animation: scrollRevealSubtle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 25%;
+    }
+  }
 }
 
 /* ============================================================

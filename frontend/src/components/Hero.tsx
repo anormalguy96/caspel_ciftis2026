@@ -7,9 +7,9 @@ export const Hero: React.FC = () => {
   return (
     <section className="hero">
       <div className="container hero__inner">
-        <p className="hero__kicker">{t('brand.exhibition')}</p>
-        <h1 className="hero__title">{t('hero.title')}</h1>
-        <p className="hero__subtitle">{t('hero.subtitle')}</p>
+        <p className="hero__kicker u-page-enter" style={{ '--i': 0 } as React.CSSProperties}>{t('brand.exhibition')}</p>
+        <h1 className="hero__title u-page-enter" style={{ '--i': 1 } as React.CSSProperties}>{t('hero.title')}</h1>
+        <p className="hero__subtitle u-page-enter" style={{ '--i': 2 } as React.CSSProperties}>{t('hero.subtitle')}</p>
       </div>
     </section>
   );
