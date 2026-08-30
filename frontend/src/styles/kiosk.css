@@ -169,7 +169,6 @@
   color: var(--color-text);
 }
 
-/* Large enough to hit confidently on a tablet, from any angle. */
 .kiosk__close {
   display: inline-flex;
   align-items: center;
@@ -183,7 +182,11 @@
   background-color: var(--color-surface-elevated);
   color: var(--color-text);
   cursor: pointer;
-  transition: background-color var(--dur-micro) var(--ease-both);
+  transition: background-color var(--dur-micro) var(--ease-both), transform var(--dur-tap) var(--ease-spring);
+}
+
+.kiosk__close:active {
+  transform: scale(0.92);
 }
 
 @media (hover: hover) and (pointer: fine) {

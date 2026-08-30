@@ -873,7 +873,7 @@
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
-  transition: color var(--dur-micro) var(--ease-both);
+  transition: color var(--dur-micro) var(--ease-both), transform var(--dur-ui) var(--ease-spring);
 }
 
 .card-link__text {
@@ -927,7 +927,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .card-link:hover {
-    padding-left: 12px;
+    padding-left: 14px;
     border-color: rgba(6, 48, 68, 0.22);
     box-shadow: none;
   }
@@ -935,7 +935,11 @@
   .card-link:hover::before { opacity: 1; }
 
   .card-link:hover .card-link__arrow-line {
-    transform: scaleX(1.35);
+    transform: scaleX(1.35) translate3d(2px, 0, 0);
+  }
+
+  .card-link:hover .card-link__index {
+    transform: scale(1.05) translate3d(1px, 0, 0);
   }
 
   .card-link:hover .card-link__name,

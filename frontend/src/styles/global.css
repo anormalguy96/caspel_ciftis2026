@@ -122,7 +122,7 @@ button {
   background-color: var(--color-surface);
   color: var(--color-text);
   font-size: 16px; /* below 16px iOS Safari zooms the whole page on focus */
-  transition: border-color var(--dur-micro) var(--ease-both);
+  transition: border-color var(--dur-micro) var(--ease-both), box-shadow var(--dur-micro) var(--ease-both);
 }
 
 .field__input::placeholder {
@@ -130,7 +130,9 @@ button {
 }
 
 .field__input:focus {
-  border-color: var(--color-dark);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary), 0 0 0 4px var(--color-primary-light);
+  outline: none;
 }
 
 .field__textarea {
