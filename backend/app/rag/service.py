@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,6 +105,29 @@ class RagService:
         )
         return doc
 
+    #: How many previous visitor turns may inform a follow-up retrieval query.
+    #: Deliberately small: this is untrusted visitor text, and one turn is
+    #: enough to resolve "it" / "its" / "that" in practice.
+    FOLLOWUP_TURNS = 1
+    FOLLOWUP_TURN_CHARS = 300
+
+    @staticmethod
+    async def _recent_user_turns(db: AsyncSession, session_id: str) -> List[str]:
+        """The last visitor turns from THIS session, oldest first.
+
+        Scoped to one session on purpose. Retrieving against a global
+        conversation history would let one visitor's question steer another
+        visitor's retrieval, which is both wrong and a privacy problem.
+        """
+        stmt = (
+            select(ChatMessage.content)
+            .where(ChatMessage.session_id == session_id, ChatMessage.role == "user")
+            .order_by(ChatMessage.id.desc())
+            .limit(RagService.FOLLOWUP_TURNS)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        return [r[: RagService.FOLLOWUP_TURN_CHARS] for r in reversed(rows) if r]
+
     @staticmethod
     async def ask(
         db: AsyncSession,
@@ -128,8 +151,20 @@ class RagService:
         # involved. It never depends on what the model feels like answering in.
         response_language = resolve_response_language(question, ui_locale)
 
+        # A short referential follow-up ("what about its procurement module?")
+        # embeds to almost nothing on its own and was returning zero chunks, so
+        # the visitor was told the corpus had no answer to a question it does
+        # answer. The most recent visitor turn from THIS session restores the
+        # subject. It is bounded, and it is used only to build the retrieval
+        # string -- it never reaches the system prompt.
+        prior_user_turns = await RagService._recent_user_turns(db, session_id)
+
         # 1. Retrieve first. If the pipeline cannot run, nothing is persisted.
-        retrieved_chunks = await retrieval_service.retrieve(db=db, query=question, top_k=4)
+        retrieved_chunks = await retrieval_service.retrieve(
+            db=db,
+            query=question,
+            prior_user_turns=prior_user_turns,
+        )
 
         # 2. Generate. Raises rather than returning a stand-in sentence.
         result = await asyncio.to_thread(
