@@ -109,3 +109,9 @@ class PresentationItem(BaseModel):
     download_filename: str
     size_bytes: Optional[int] = None
     page_count: Optional[int] = None
+
+
+class TranscriptionResponse(BaseModel):
+    """Just the text. No confidence, no language guess, no provider detail."""
+
+    text: str

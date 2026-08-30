@@ -1,7 +1,8 @@
+import asyncio
 import logging
 from typing import Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,12 +14,18 @@ from app.core.presentations import PRESENTATIONS, REGISTERED_SLUGS, verify
 from app.core.rate_limit import limiter
 from app.models.entities import AnalyticsEvent, Document, DocumentChunk, Lead
 from app.rag.embeddings import embedding_service
-from app.rag.errors import RagError
+from app.rag.errors import ProviderUnavailableError, RagError
 from app.rag.generation import generation_service
 from app.rag.service import rag_service
+from app.rag.transcription import (
+    TranscriptionRejected,
+    transcription_service,
+    validate_upload,
+)
 from app.schemas.schemas import (
     ChatRequest,
     ChatResponse,
+    TranscriptionResponse,
     EventCreate,
     EventResponse,
     HealthResponse,
@@ -377,3 +384,65 @@ async def chat_endpoint(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="CASPEL AI is temporarily unavailable. Please try again in a moment.",
         )
+
+
+@router.post("/chat/transcribe", response_model=TranscriptionResponse)
+@limiter.limit(settings.RATE_LIMIT_TRANSCRIBE)
+async def transcribe_endpoint(
+    request: Request,
+    response: Response,
+    audio: UploadFile = File(...),
+):
+    """Transcribe one short voice message into editable text.
+
+    The transcript is returned to the browser and put in the composer. It is
+    NOT sent as a question: a visitor reviews and edits it first, because a
+    mis-heard product name would otherwise become a question the corpus cannot
+    answer, asked on their behalf without their seeing it.
+
+    The audio is never stored. It exists as a temporary file for the duration
+    of the provider call and is removed in `finally`, along with the
+    provider-side upload.
+
+    Nothing about the upload or the transcript is logged.
+    """
+    try:
+        raw = await audio.read()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The recording could not be read.",
+        )
+
+    try:
+        mime = validate_upload(audio.content_type, len(raw))
+    except TranscriptionRejected as exc:
+        # Reason code only; the rejected content type is attacker-controlled.
+        logger.info("Rejected voice upload: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            if str(exc) == "upload_too_large"
+            else status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="That recording format or size is not supported.",
+        )
+
+    try:
+        result = await asyncio.to_thread(transcription_service.transcribe, raw, mime)
+    except ProviderUnavailableError as exc:
+        logger.error("Transcription unavailable: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice input is temporarily unavailable. Please type your question.",
+        )
+    except Exception as exc:
+        logger.error("Unexpected transcription failure: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice input is temporarily unavailable. Please type your question.",
+        )
+    finally:
+        # Drop our reference to the audio promptly rather than waiting for the
+        # request object to fall out of scope.
+        del raw
+
+    return TranscriptionResponse(text=result.text)

@@ -100,7 +100,15 @@
     "copyAnswer": "Copy answer",
     "copied": "Copied",
     "copyFailed": "Could not copy. Select the text to copy it manually.",
-    "sourcesHeading": "Sources"
+    "sourcesHeading": "Sources",
+    "voiceStart": "Record a question",
+    "voiceStop": "Stop recording",
+    "voiceCancel": "Cancel recording",
+    "voiceRecording": "Recording",
+    "voiceTranscribing": "Transcribing…",
+    "voiceDenied": "Microphone unavailable. Please type your question.",
+    "voiceFailed": "Could not transcribe that. Please try again or type your question.",
+    "voiceReview": "Check the text before sending."
   },
   "aiEntry": {
     "label": "CASPEL AI",

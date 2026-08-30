@@ -1470,3 +1470,105 @@
     transition: none;
   }
 }
+
+/* ============================================================
+   Voice input
+   ------------------------------------------------------------
+   The microphone sits beside the text field, never in place of
+   it. While recording, the composer swaps to a transport strip:
+   cancel, a real amplitude meter, the elapsed time against the
+   cap, and stop.
+   ============================================================ */
+.modal--chat .chat__voice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.modal--chat .chat__voice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--chat-ink-muted);
+  cursor: pointer;
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__voice-btn:hover:not(:disabled) {
+    color: var(--chat-ink);
+    background-color: var(--chat-surface-raised);
+  }
+}
+
+.modal--chat .chat__voice-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.modal--chat .chat__voice-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal--chat .chat__voice-btn--stop {
+  color: var(--green-on-primary);
+  background-color: var(--green-500);
+}
+
+.modal--chat .chat__voice--recording {
+  flex: 1 1 auto;
+  gap: var(--space-md);
+  padding-inline: var(--space-sm);
+}
+
+/* One element, scaled on the compositor from a real amplitude reading. The
+   meter moves because the microphone is picking something up, which is how a
+   visitor can tell recording is actually working. */
+.modal--chat .chat__voice-meter {
+  flex: 1 1 auto;
+  block-size: 4px;
+  border-radius: 999px;
+  background-color: var(--chat-surface-raised);
+  overflow: hidden;
+}
+
+.modal--chat .chat__voice-level {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  border-radius: inherit;
+  background-color: var(--chat-accent);
+  transform: scaleX(var(--level, 0));
+  transform-origin: left center;
+  transition: transform var(--dur-tap) linear;
+}
+
+.modal--chat .chat__voice-time {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+  /* Tabular figures so the timer does not jitter as digits change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.modal--chat .chat__voice-status {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The hook stops sampling under reduced motion, so the bar simply holds
+     still rather than easing between values it is no longer receiving. */
+  .modal--chat .chat__voice-level {
+    transition: none;
+  }
+}

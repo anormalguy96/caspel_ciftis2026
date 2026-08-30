@@ -12,6 +12,7 @@ import caspelIcon from '../assets/caspel-icon.svg';
 import { ActionArrow } from './ActionArrow';
 import { SourceCitation } from './SourceCitation';
 import { CopyAnswerButton } from './CopyAnswerButton';
+import { VoiceComposerControls } from './VoiceComposerControls';
 import { citationPath } from '../utils/citationLink';
 
 interface CaspelAIModalProps {
@@ -353,6 +354,16 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
             onChange={(e) => setInputValue(e.target.value)}
             autoComplete="off"
           />
+          {/* Voice is an alternative way to fill the field above, never a
+              replacement for it. The transcript lands in the input and the
+              visitor reviews and sends it themselves. */}
+          <VoiceComposerControls
+            disabled={isLoading}
+            onTranscript={(text: string) =>
+              setInputValue((current) => (current ? `${current} ${text}` : text))
+            }
+          />
+
           <button
             type="submit"
             className="chat__send"
