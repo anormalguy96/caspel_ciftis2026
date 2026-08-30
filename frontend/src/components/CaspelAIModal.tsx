@@ -11,6 +11,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import caspelIcon from '../assets/caspel-icon.svg';
 import { ActionArrow } from './ActionArrow';
 import { SourceCitation } from './SourceCitation';
+import { CopyAnswerButton } from './CopyAnswerButton';
 import { citationPath } from '../utils/citationLink';
 
 interface CaspelAIModalProps {
@@ -255,6 +256,14 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
                   <MarkdownRenderer content={msg.content} />
                 ) : (
                   <p className="chat__text">{msg.content}</p>
+                )}
+
+                {msg.role === 'assistant' && (
+                  <CopyAnswerButton
+                    answer={msg.content}
+                    sources={msg.sources}
+                    sourcesHeading={t('ai.sourcesHeading', { defaultValue: 'Sources' })}
+                  />
                 )}
 
                 {msg.sources && msg.sources.length > 0 && (

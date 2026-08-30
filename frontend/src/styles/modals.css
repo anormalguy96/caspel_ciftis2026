@@ -1384,3 +1384,89 @@
     transition: none;
   }
 }
+
+/* ============================================================
+   Copy answer
+   ------------------------------------------------------------
+   Both icons are always laid out and one is hidden, so the
+   confirmation swap cannot resize the control under the
+   visitor's finger.
+   ============================================================ */
+.modal--chat .chat__answer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.modal--chat .chat__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--chat-ink-muted);
+  cursor: pointer;
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__copy:hover {
+    color: var(--chat-ink);
+    background-color: var(--chat-surface-raised);
+  }
+}
+
+.modal--chat .chat__copy:active {
+  transform: scale(0.92);
+}
+
+.modal--chat .chat__copy[data-state='copied'] {
+  color: var(--chat-accent);
+}
+
+/* One grid cell holding both icons: they overlap rather than reflow. */
+.modal--chat .chat__copy-icons {
+  display: grid;
+  place-items: center;
+}
+
+.modal--chat .chat__copy-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity   var(--dur-micro) var(--ease-both),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.modal--chat .chat__copy-icon--done {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.modal--chat .chat__copy[data-state='copied'] .chat__copy-icon--rest {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.modal--chat .chat__copy[data-state='copied'] .chat__copy-icon--done {
+  opacity: 1;
+  transform: none;
+}
+
+.modal--chat .chat__copy-status {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal--chat .chat__copy-icon {
+    transition: none;
+  }
+}
