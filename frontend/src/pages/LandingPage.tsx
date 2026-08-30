@@ -24,6 +24,8 @@ import { trackAnalyticsEvent } from '../services/analytics';
  * The demo and contact actions come last. They matter, but a visitor who has
  * not yet seen a presentation has no reason to request one.
  */
+let hasVisitedLanding = false;
+
 export const LandingPage: React.FC = () => {
   const { t } = useTranslation();
   const products = useProducts();
@@ -31,9 +33,11 @@ export const LandingPage: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [seedQuestion, setSeedQuestion] = useState<string | undefined>(undefined);
+  const [isReturnNav] = useState(() => hasVisitedLanding);
 
   useEffect(() => {
     trackAnalyticsEvent('LANDING_OPEN');
+    hasVisitedLanding = true;
   }, []);
 
   const handleOpenDemo = () => {
@@ -70,7 +74,7 @@ export const LandingPage: React.FC = () => {
             </h2>
             <div className="landing__cards">
               {products.map((product, i) => (
-                <ProductCard key={product.slug} product={product} index={i} />
+                <ProductCard key={product.slug} product={product} index={i} isReturn={isReturnNav} />
               ))}
             </div>
           </section>

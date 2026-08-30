@@ -8,6 +8,7 @@ import { transitionNavigate } from '../utils/transitionNavigate';
 interface ProductCardProps {
   product: ProductConfig;
   index?: number;
+  isReturn?: boolean;
 }
 
 /**
@@ -17,7 +18,7 @@ interface ProductCardProps {
  * sequence that does not exist and is the kind of decoration that makes a
  * corporate site read as a template.
  */
-export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0, isReturn = false }) => {
   const navigate = useNavigate();
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -32,7 +33,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
     <Link
       to={`/product/${product.slug}`}
       onClick={handleClick}
-      className="card-link u-enter"
+      className={isReturn ? 'card-link' : 'card-link u-enter'}
       // Only the stagger index stays inline: it is per-item data, not styling.
       style={{ ['--i' as string]: index }}
       aria-label={`${product.name}: ${product.descriptor}`}

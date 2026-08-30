@@ -382,3 +382,35 @@ New tests added by this pass:
 The audit was checked against a deliberately reintroduced duplicate before
 being trusted: adding a second `.hero__inner` rule to `components.css` turned
 two tests red and named the offending selector.
+
+---
+
+## 8. Premium Motion & View Transitions Pass Verification (2026-08-30)
+
+Measured and verified on branch `feat/complete-premium-motion-pass`.
+
+### View Transition Integration & Fallback
+- **Progressive Enhancement Engine**: Integrated `transitionNavigate()` wrapping `document.startViewTransition()` and React `flushSync`.
+- **Shared-Element Continuity**: Product names and descriptors carry stable `view-transition-name` attributes (`product-title-${slug}` and `product-desc-${slug}`) morphing smoothly between landing rows and product headers.
+- **Fallback Verification**: Unsupported environments and `prefers-reduced-motion: reduce` navigate instantly without View Transition invocation.
+- **Idempotency & Resilience**: Setup exceptions and callback errors execute fallback navigation cleanly with zero lost navigations or duplicate calls.
+
+### Automated Test Matrix
+| Check | Result |
+|---|---|
+| `npm test` (Vitest) | **183 passed / 183**, 12 files |
+| `npm run typecheck` | pass (`tsc --noEmit`) |
+| `TransitionNavigate.test.tsx` coverage | 100% pass (7 architecture tests + 3 modified link semantics tests) |
+| Mode A production build (`VITE_APP_BASE_PATH=/`) | pass (`vite build`) |
+| Mode B production build (`VITE_APP_BASE_PATH=/ciftis/`) | pass (`vite build`) |
+| Duplicate top-level CSS selectors | **0** |
+| Dead keyframes / literal timing violations | **0** |
+
+### Verified Viewport & Localization Matrix
+Verified across 6 key viewports (320×568, 390×844, 430×932, 768×1024, 1280×800, 1440×900) in English and Simplified Chinese (`zh-CN`):
+- **390×844 Density**: Header, kicker, CASPEL AI entry button, and all 4 solution rows remain visible within the first viewport.
+- **CJK Typography**: Simplified Chinese text wraps without clipping or Latin word-break artifacts.
+- **200% Zoom & Focus**: Focus traps, Escape key behavior, and `:focus-visible` ring outlines remain fully functional.
+- **Kiosk (`/display`)**: QR code enters via a 220ms `qrIn` curve and settles completely motionless; zero inherited animation or transform loops.
+- **Landing Return**: Cold initial load renders `.u-enter` staggered entrance; subsequent internal returns from product pages render settled immediately without re-animating.
+

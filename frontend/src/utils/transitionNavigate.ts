@@ -13,6 +13,17 @@ export function transitionNavigate(
   to: To | number,
   options?: NavigateOptions
 ): void {
+  let hasNavigated = false;
+  const doNavigate = () => {
+    if (hasNavigated) return;
+    hasNavigated = true;
+    if (typeof to === 'number') {
+      navigate(to);
+    } else {
+      navigate(to, options);
+    }
+  };
+
   const prefersReduced =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -23,34 +34,28 @@ export function transitionNavigate(
     !('startViewTransition' in document) ||
     typeof (document as unknown as { startViewTransition: unknown }).startViewTransition !== 'function'
   ) {
-    if (typeof to === 'number') {
-      navigate(to);
-    } else {
-      navigate(to, options);
-    }
+    doNavigate();
     return;
   }
 
   try {
-    (
+    const transition = (
       document as unknown as {
-        startViewTransition: (callback: () => void) => { finished: Promise<void> };
+        startViewTransition: (callback: () => void) => { finished?: Promise<void> };
       }
     ).startViewTransition(() => {
       flushSync(() => {
-        if (typeof to === 'number') {
-          navigate(to);
-        } else {
-          navigate(to, options);
-        }
+        doNavigate();
       });
     });
+
+    if (transition && typeof transition.finished?.catch === 'function') {
+      transition.finished.catch(() => {
+        // Animation phase failure does not undo navigation
+      });
+    }
   } catch {
     // Failure in View Transition setup must never block navigation
-    if (typeof to === 'number') {
-      navigate(to);
-    } else {
-      navigate(to, options);
-    }
+    doNavigate();
   }
 }
