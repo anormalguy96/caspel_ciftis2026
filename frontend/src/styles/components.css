@@ -43,7 +43,7 @@
 }
 
 .btn:not(:disabled):active {
-  transform: scale(0.978) translateY(0);
+  transform: translate3d(0, 1px, 0) scale(0.978);
 }
 
 .btn--primary {
@@ -63,16 +63,29 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.22) 50%,
     transparent 100%
   );
-  transition: transform var(--dur-sheen) var(--ease-out);
+  transition: transform var(--dur-sheen) var(--ease-shutter);
   pointer-events: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .btn:not(:disabled):hover {
+    transform: translate3d(0, -2px, 0);
+  }
+
+  .btn--primary:not(:disabled):hover {
+    box-shadow: 0 6px 20px -2px rgba(6, 48, 68, 0.28), 0 10px 24px -4px rgba(111, 209, 103, 0.16);
+  }
+
   .btn--primary:not(:disabled):hover::before {
     transform: translateX(200%);
+  }
+
+  .btn--secondary:not(:disabled):hover {
+    box-shadow: 0 4px 14px rgba(6, 48, 68, 0.08);
+    border-color: var(--color-border-hover);
   }
 }
 
@@ -199,24 +212,34 @@
 
 .site-footer__logo {
   display: block;
-  height: 26px;
+  height: 38px;
   width: auto;
+  transition: transform var(--dur-micro) var(--ease-spring);
+}
+
+.site-footer__logo:hover {
+  transform: scale(1.04);
 }
 
 .site-footer__logo-divider {
   display: block;
   width: 1px;
-  height: 18px;
-  background-color: var(--color-border);
-  margin: 0 4px;
+  height: 26px;
+  background-color: rgba(6, 48, 68, 0.24);
+  margin: 0 8px;
 }
 
 .site-footer__ciftis-logo {
   display: block;
-  height: 29px;
+  height: 42px;
   width: auto;
   object-fit: contain;
-  margin-left: 3px;
+  margin-left: 4px;
+  transition: transform var(--dur-micro) var(--ease-spring);
+}
+
+.site-footer__ciftis-logo:hover {
+  transform: scale(1.04);
 }
 
 .site-footer__event {
