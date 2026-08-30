@@ -10,6 +10,10 @@ import { useModalA11y } from '../hooks/useModalA11y';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import caspelIcon from '../assets/caspel-icon.svg';
 import { ActionArrow } from './ActionArrow';
+import { SourceCitation } from './SourceCitation';
+import { CopyAnswerButton } from './CopyAnswerButton';
+import { VoiceComposerControls } from './VoiceComposerControls';
+import { citationPath } from '../utils/citationLink';
 
 interface CaspelAIModalProps {
   isOpen: boolean;
@@ -255,6 +259,14 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
                   <p className="chat__text">{msg.content}</p>
                 )}
 
+                {msg.role === 'assistant' && (
+                  <CopyAnswerButton
+                    answer={msg.content}
+                    sources={msg.sources}
+                    sourcesHeading={t('ai.sourcesHeading', { defaultValue: 'Sources' })}
+                  />
+                )}
+
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="chat__sources">
                     <span className="chat__sources-head">
@@ -262,19 +274,27 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
                       <span>{t('ai.sourcesLabel')}</span>
                     </span>
                     {/*
-                      A footnote list, not decorative pills. These are the
-                      document and page a visitor can check at the stand, so
-                      they are readable, selectable, and never translated: the
-                      title is the exact approved filename's document title and
-                      the page number is server-owned.
+                      Real citations, not decorative pills. Each one opens the
+                      approved document at the exact cited page and shows a
+                      thumbnail of that slide, so a visitor at the stand can
+                      check the claim rather than take it on trust. The title
+                      and page are server-owned; the route is built from the
+                      registry slug, never from anything the model wrote.
                     */}
                     <ol className="chat__sources-list">
-                      {msg.sources.map((src, i) => (
-                        <li key={i} className="chat__source" lang="en">
-                          <cite className="chat__source-doc">{src.document}</cite>
-                          <span className="chat__source-page">p.{src.page}</span>
-                        </li>
-                      ))}
+                      {msg.sources.map((src, i) => {
+                        const href = citationPath(src);
+                        return href ? (
+                          <SourceCitation key={`${src.slug}-${src.page}`} source={src} href={href} index={i} />
+                        ) : (
+                          // A source the server could not make linkable still
+                          // gets shown, because the reference itself is true.
+                          <li key={i} className="chat__source" lang="en">
+                            <cite className="chat__source-doc">{src.document}</cite>
+                            <span className="chat__source-page">p.{src.page}</span>
+                          </li>
+                        );
+                      })}
                     </ol>
                   </div>
                 )}
@@ -334,6 +354,16 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
             onChange={(e) => setInputValue(e.target.value)}
             autoComplete="off"
           />
+          {/* Voice is an alternative way to fill the field above, never a
+              replacement for it. The transcript lands in the input and the
+              visitor reviews and sends it themselves. */}
+          <VoiceComposerControls
+            disabled={isLoading}
+            onTranscript={(text: string) =>
+              setInputValue((current) => (current ? `${current} ${text}` : text))
+            }
+          />
+
           <button
             type="submit"
             className="chat__send"

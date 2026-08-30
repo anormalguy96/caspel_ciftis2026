@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_CHAT_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-2"
+    #: Separate from the chat model on purpose. Transcription and grounded
+    #: answering are different jobs, and swapping one must not silently swap
+    #: the other.
+    GEMINI_TRANSCRIPTION_MODEL: str = "gemini-3.5-transcribe"
     EMBEDDING_DIMENSION: int = 768
     RAG_SIMILARITY_THRESHOLD: float = 0.70
 
@@ -54,6 +58,8 @@ class Settings(BaseSettings):
     # Rate limits (slowapi syntax) protecting the unauthenticated endpoints.
     RATE_LIMIT_LEADS: str = "10/hour"
     RATE_LIMIT_CHAT: str = "20/minute"
+    #: Tighter than chat: each call uploads a file and runs a provider job.
+    RATE_LIMIT_TRANSCRIBE: str = "10/minute"
     RATE_LIMIT_EVENTS: str = "120/minute"
 
     model_config = SettingsConfigDict(

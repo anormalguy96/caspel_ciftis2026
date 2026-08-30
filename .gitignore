@@ -39,3 +39,10 @@ implementation.md
 docs/PHASE2_1_VERIFICATION_REPORT.md
 *.tsbuildinfo
 Skills/
+
+# Local operator tooling and working notes. These were committed by mistake in
+# a7c9054; removing them from the tree stops them reaching future checkouts.
+# The 54 MB blob remains in history and can only be removed by a rewrite,
+# which is a separate, coordinated operation.
+cloudflared.exe
+clues.md

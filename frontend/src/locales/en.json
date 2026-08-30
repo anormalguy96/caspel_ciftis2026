@@ -93,7 +93,22 @@
     "searching": "Searching published presentation material",
     "sendLabel": "Send question",
     "inputLabel": "Your question for CASPEL AI",
-    "youLabel": "You"
+    "youLabel": "You",
+    "citationLabel": "{{document}}, page {{page}}",
+    "pageLabel": "page {{page}}",
+    "slidePreviewUnavailable": "Preview unavailable",
+    "copyAnswer": "Copy answer",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the text to copy it manually.",
+    "sourcesHeading": "Sources",
+    "voiceStart": "Record a question",
+    "voiceStop": "Stop recording",
+    "voiceCancel": "Cancel recording",
+    "voiceRecording": "Recording",
+    "voiceTranscribing": "Transcribing…",
+    "voiceDenied": "Microphone unavailable. Please type your question.",
+    "voiceFailed": "Could not transcribe that. Please try again or type your question.",
+    "voiceReview": "Check the text before sending."
   },
   "aiEntry": {
     "label": "CASPEL AI",

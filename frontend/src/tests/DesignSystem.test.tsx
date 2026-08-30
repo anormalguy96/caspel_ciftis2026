@@ -4,6 +4,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// Resolved from this file, not from process.cwd(): a suite that only passes
+// when vitest happens to be invoked from the package root is a trap for CI.
+const SRC = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 import { ActionArrow } from '../components/ActionArrow';
 import { Footer } from '../components/Footer';
@@ -90,13 +96,13 @@ describe('arrow direction follows behaviour, not label wording', () => {
   it('renders no literal arrow glyph anywhere in visitor-facing JSX', () => {
     // Guards the rule at the source, not just at one render.
     for (const file of [
-      'src/components/CaspelAIEntry.tsx',
-      'src/components/CaspelAIModal.tsx',
-      'src/components/Footer.tsx',
-      'src/components/ProductCard.tsx',
-      'src/pages/LandingPage.tsx',
+      'components/CaspelAIEntry.tsx',
+      'components/CaspelAIModal.tsx',
+      'components/Footer.tsx',
+      'components/ProductCard.tsx',
+      'pages/LandingPage.tsx',
     ]) {
-      const source = readFileSync(file, 'utf8');
+      const source = readFileSync(join(SRC, file), 'utf8');
       expect(source).not.toMatch(/[→↗]/);
     }
   });
@@ -421,7 +427,7 @@ describe('every application stylesheet defines each selector exactly once', () =
   ];
 
   it.each(SHEETS)('%s has no duplicate top-level selector list', (sheet) => {
-    const css = readFileSync(`src/styles/${sheet}`, 'utf8');
+    const css = readFileSync(join(SRC, 'styles', sheet), 'utf8');
     const dupes = duplicateSelectors(css);
     expect(
       dupes.map((d) => `${d.selector} x${d.count}`),
@@ -432,13 +438,13 @@ describe('every application stylesheet defines each selector exactly once', () =
   });
 
   it('audits all seven sheets, so a new stylesheet cannot slip past unchecked', () => {
-    const onDisk = readdirSync('src/styles').filter((f) => f.endsWith('.css')).sort();
+    const onDisk = readdirSync(join(SRC, 'styles')).filter((f) => f.endsWith('.css')).sort();
     expect(onDisk).toEqual([...SHEETS].sort());
   });
 
   it('reports zero duplicates across the whole stylesheet set', () => {
     const total = SHEETS.reduce(
-      (n, sheet) => n + duplicateSelectors(readFileSync(`src/styles/${sheet}`, 'utf8')).length,
+      (n, sheet) => n + duplicateSelectors(readFileSync(join(SRC, 'styles', sheet), 'utf8')).length,
       0
     );
     expect(total).toBe(0);

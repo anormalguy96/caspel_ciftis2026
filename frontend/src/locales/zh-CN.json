@@ -93,7 +93,22 @@
     "searching": "正在检索已发布的演示材料",
     "sendLabel": "发送问题",
     "inputLabel": "向 CASPEL AI 提问",
-    "youLabel": "您"
+    "youLabel": "您",
+    "citationLabel": "{{document}}，第 {{page}} 页",
+    "pageLabel": "第 {{page}} 页",
+    "slidePreviewUnavailable": "预览不可用",
+    "copyAnswer": "复制回答",
+    "copied": "已复制",
+    "copyFailed": "无法复制。请手动选择文本进行复制。",
+    "sourcesHeading": "来源",
+    "voiceStart": "录制问题",
+    "voiceStop": "停止录音",
+    "voiceCancel": "取消录音",
+    "voiceRecording": "正在录音",
+    "voiceTranscribing": "转写中…",
+    "voiceDenied": "无法使用麦克风。请输入您的问题。",
+    "voiceFailed": "无法转写。请重试或输入您的问题。",
+    "voiceReview": "发送前请检查文字。"
   },
   "aiEntry": {
     "label": "CASPEL AI",

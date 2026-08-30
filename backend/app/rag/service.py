@@ -1,11 +1,11 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.presentations import file_sha256
+from app.core.presentations import PRESENTATIONS, file_sha256
 from app.models.entities import ChatMessage, ChatSession, Document, DocumentChunk
 from app.rag.embeddings import embedding_service
 from app.rag.errors import RagError
@@ -16,6 +16,45 @@ from app.rag.retrieval import retrieval_service
 from app.schemas.schemas import ChatResponse, ChatSource
 
 logger = logging.getLogger(__name__)
+
+
+def _build_public_sources(records) -> List[ChatSource]:
+    """Turn verified retrieval records into de-duplicated, linkable citations.
+
+    Anything whose slug is not registered, or whose page falls outside the
+    approved document's real page count, is dropped rather than repaired. A
+    citation the client cannot open is worse than one fewer citation.
+    """
+    seen: set = set()
+    out: List[ChatSource] = []
+
+    for record in records:
+        slug = (record.product or "").strip().lower() or None
+        spec = PRESENTATIONS.get(slug) if slug else None
+
+        if spec is None or not spec.is_registered:
+            logger.warning("Dropping citation for unregistered slug")
+            continue
+        if not isinstance(record.page, int) or record.page < 1 or record.page > spec.page_count:
+            logger.warning("Dropping citation with an out-of-range page")
+            continue
+
+        key = (slug, record.page)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        out.append(
+            ChatSource(
+                document=record.document,
+                product=record.product,
+                page=record.page,
+                slug=slug,
+                score=record.score,
+            )
+        )
+
+    return out
 
 
 class RagService:
@@ -105,6 +144,29 @@ class RagService:
         )
         return doc
 
+    #: How many previous visitor turns may inform a follow-up retrieval query.
+    #: Deliberately small: this is untrusted visitor text, and one turn is
+    #: enough to resolve "it" / "its" / "that" in practice.
+    FOLLOWUP_TURNS = 1
+    FOLLOWUP_TURN_CHARS = 300
+
+    @staticmethod
+    async def _recent_user_turns(db: AsyncSession, session_id: str) -> List[str]:
+        """The last visitor turns from THIS session, oldest first.
+
+        Scoped to one session on purpose. Retrieving against a global
+        conversation history would let one visitor's question steer another
+        visitor's retrieval, which is both wrong and a privacy problem.
+        """
+        stmt = (
+            select(ChatMessage.content)
+            .where(ChatMessage.session_id == session_id, ChatMessage.role == "user")
+            .order_by(ChatMessage.id.desc())
+            .limit(RagService.FOLLOWUP_TURNS)
+        )
+        rows = (await db.execute(stmt)).scalars().all()
+        return [r[: RagService.FOLLOWUP_TURN_CHARS] for r in reversed(rows) if r]
+
     @staticmethod
     async def ask(
         db: AsyncSession,
@@ -128,8 +190,20 @@ class RagService:
         # involved. It never depends on what the model feels like answering in.
         response_language = resolve_response_language(question, ui_locale)
 
+        # A short referential follow-up ("what about its procurement module?")
+        # embeds to almost nothing on its own and was returning zero chunks, so
+        # the visitor was told the corpus had no answer to a question it does
+        # answer. The most recent visitor turn from THIS session restores the
+        # subject. It is bounded, and it is used only to build the retrieval
+        # string -- it never reaches the system prompt.
+        prior_user_turns = await RagService._recent_user_turns(db, session_id)
+
         # 1. Retrieve first. If the pipeline cannot run, nothing is persisted.
-        retrieved_chunks = await retrieval_service.retrieve(db=db, query=question, top_k=4)
+        retrieved_chunks = await retrieval_service.retrieve(
+            db=db,
+            query=question,
+            prior_user_turns=prior_user_turns,
+        )
 
         # 2. Generate. Raises rather than returning a stand-in sentence.
         result = await asyncio.to_thread(
@@ -154,15 +228,16 @@ class RagService:
 
         # Only citations the server could verify against what was actually
         # retrieved. A title or page the model wrote itself never gets here.
-        sources = [
-            ChatSource(
-                document=record.document,
-                product=record.product,
-                page=record.page,
-                score=record.score,
-            )
-            for record in result.sources
-        ]
+        #
+        # Two further guarantees are added on the way out, because these
+        # citations become clickable deep links in the client:
+        #
+        #   * the slug must be a registered presentation, and the page must be
+        #     inside that document's real page count, so a link can never point
+        #     at a missing document or a page past the end of it;
+        #   * repeated slug/page pairs collapse, so an answer that cites the
+        #     same slide three times shows one citation rather than three.
+        sources = _build_public_sources(result.sources)
 
         return ChatResponse(answer=result.answer, sources=sources, session_id=session_id)
 

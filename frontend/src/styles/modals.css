@@ -1274,3 +1274,301 @@
   .chat__ambient-loop--b { transform: rotate(-42deg) scale(1.02); }
   .chat__ambient-loop--c { transform: rotate(112deg) scale(1); }
 }
+
+/* ============================================================
+   Grounded citations
+   ------------------------------------------------------------
+   A citation is a control, not a footnote: it opens the approved
+   document at the exact cited page. It is sized and stated like
+   one, and the slide thumbnail beneath it is the same page the
+   link goes to, rendered from the same verified stream.
+   ============================================================ */
+.modal--chat .chat__source-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  /* Full 44px target while the visible text stays at its own size. */
+  min-height: var(--target-min);
+  padding: var(--space-sm) 0;
+  color: var(--chat-ink);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__source-link:hover {
+    color: var(--chat-accent);
+  }
+
+  .modal--chat .chat__source-link:hover .chat__source-doc {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.modal--chat .chat__source-link:active {
+  transform: scale(0.99);
+  background-color: var(--chat-surface-raised);
+}
+
+.modal--chat .chat__source-figure {
+  display: block;
+  margin-top: var(--space-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  /* Reserve the slide's shape before it renders, so an arriving thumbnail
+     never pushes the rest of the transcript down. */
+  aspect-ratio: 16 / 9;
+  inline-size: min(220px, 100%);
+  background-color: var(--chat-surface-raised);
+  box-shadow: inset 0 0 0 1px var(--chat-hairline);
+  position: relative;
+}
+
+.modal--chat .chat__source-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+
+.modal--chat .chat__source[data-state='ready'] .chat__source-canvas {
+  opacity: 1;
+}
+
+.modal--chat .chat__source-thumbstate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-sm);
+  color: var(--chat-ink-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* A quiet shimmer while the page is being fetched and drawn. It is a real
+   wait -- a range request plus a render -- so the slot says so. */
+.modal--chat .chat__source[data-state='loading'] .chat__source-thumbstate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(233, 245, 240, 0.06) 50%,
+    transparent 80%
+  );
+  animation: sourceThumbShimmer 1.4s var(--ease-both) infinite;
+}
+
+@keyframes sourceThumbShimmer {
+  from { transform: translate3d(-100%, 0, 0); }
+  to   { transform: translate3d(100%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal--chat .chat__source[data-state='loading'] .chat__source-thumbstate::before {
+    animation: none;
+    background: rgba(233, 245, 240, 0.04);
+  }
+
+  .modal--chat .chat__source-canvas {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   Copy answer
+   ------------------------------------------------------------
+   Both icons are always laid out and one is hidden, so the
+   confirmation swap cannot resize the control under the
+   visitor's finger.
+   ============================================================ */
+.modal--chat .chat__answer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.modal--chat .chat__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--chat-ink-muted);
+  cursor: pointer;
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__copy:hover {
+    color: var(--chat-ink);
+    background-color: var(--chat-surface-raised);
+  }
+}
+
+.modal--chat .chat__copy:active {
+  transform: scale(0.92);
+}
+
+.modal--chat .chat__copy[data-state='copied'] {
+  color: var(--chat-accent);
+}
+
+/* One grid cell holding both icons: they overlap rather than reflow. */
+.modal--chat .chat__copy-icons {
+  display: grid;
+  place-items: center;
+}
+
+.modal--chat .chat__copy-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity   var(--dur-micro) var(--ease-both),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.modal--chat .chat__copy-icon--done {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.modal--chat .chat__copy[data-state='copied'] .chat__copy-icon--rest {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.modal--chat .chat__copy[data-state='copied'] .chat__copy-icon--done {
+  opacity: 1;
+  transform: none;
+}
+
+.modal--chat .chat__copy-status {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal--chat .chat__copy-icon {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   Voice input
+   ------------------------------------------------------------
+   The microphone sits beside the text field, never in place of
+   it. While recording, the composer swaps to a transport strip:
+   cancel, a real amplitude meter, the elapsed time against the
+   cap, and stop.
+   ============================================================ */
+.modal--chat .chat__voice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.modal--chat .chat__voice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--chat-ink-muted);
+  cursor: pointer;
+  transition:
+    color            var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal--chat .chat__voice-btn:hover:not(:disabled) {
+    color: var(--chat-ink);
+    background-color: var(--chat-surface-raised);
+  }
+}
+
+.modal--chat .chat__voice-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.modal--chat .chat__voice-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal--chat .chat__voice-btn--stop {
+  color: var(--green-on-primary);
+  background-color: var(--green-500);
+}
+
+.modal--chat .chat__voice--recording {
+  flex: 1 1 auto;
+  gap: var(--space-md);
+  padding-inline: var(--space-sm);
+}
+
+/* One element, scaled on the compositor from a real amplitude reading. The
+   meter moves because the microphone is picking something up, which is how a
+   visitor can tell recording is actually working. */
+.modal--chat .chat__voice-meter {
+  flex: 1 1 auto;
+  block-size: 4px;
+  border-radius: 999px;
+  background-color: var(--chat-surface-raised);
+  overflow: hidden;
+}
+
+.modal--chat .chat__voice-level {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  border-radius: inherit;
+  background-color: var(--chat-accent);
+  transform: scaleX(var(--level, 0));
+  transform-origin: left center;
+  transition: transform var(--dur-tap) linear;
+}
+
+.modal--chat .chat__voice-time {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+  /* Tabular figures so the timer does not jitter as digits change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.modal--chat .chat__voice-status {
+  font-size: 12px;
+  color: var(--chat-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The hook stops sampling under reduced motion, so the bar simply holds
+     still rather than easing between values it is no longer receiving. */
+  .modal--chat .chat__voice-level {
+    transition: none;
+  }
+}
