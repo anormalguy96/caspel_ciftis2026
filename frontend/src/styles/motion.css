@@ -19,6 +19,12 @@
   --dur-ui:     180ms;  /* control state, arrow nudge */
   --dur-panel:  240ms;  /* sheet/modal entrance */
   --dur-exit:   130ms;  /* snappy accelerated exit */
+  /* Route/shared-element scale. The card sheen travels the full width of a
+     row, so it needs the long band; anything shorter reads as a flicker. */
+  --dur-route:  320ms;
+  /* The decorative sheen alone. Deliberately slower than a route change:
+     it is ambient, and at route speed it competes with the content. */
+  --dur-sheen:  600ms;
   /* Stagger is an intentional sequence: cards finish smoothly */
   --stagger-step: 45ms;
   --stagger-max: 3;
@@ -95,9 +101,7 @@
 }
 
 /* Ambient breathing aura for interactive signals */
-@keyframes pulseAura {
-  0%, 100% { transform: scale(1) translate3d(0, 0, 0); }
-  50%      { transform: scale(1.04) translate3d(0, 0, 0); }
+
 }
 
 /* ── Scroll-reveal keyframes ───────────────────────────────────

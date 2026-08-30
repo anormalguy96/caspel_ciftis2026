@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ArrowLeft, Download, Calendar, AlertTriangle, RotateCw } from 'lucide-react';
+import { ArrowLeft, Calendar, AlertTriangle, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { PdfViewer } from '../components/PdfViewer';
@@ -9,6 +9,7 @@ import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
 import { useProduct } from '../config/products';
 import { usePresentationManifest } from '../hooks/usePresentationManifest';
+import { DownloadPresentationButton } from '../components/DownloadPresentationButton';
 import { downloadPresentation } from '../services/presentations';
 import { trackAnalyticsEvent } from '../services/analytics';
 import { transitionNavigate } from '../utils/transitionNavigate';
@@ -78,6 +79,17 @@ export const ProductPage: React.FC = () => {
     trackAnalyticsEvent('PRESENTATION_VIEW', validSlug);
   }, [validSlug, isAvailable]);
 
+  /**
+   * Records the download. The transfer itself is started by the button, which
+   * owns its own states; this only counts it. The slug is an identifier, not
+   * visitor content, so nothing personal is recorded.
+   */
+  const handleDownloadTracked = useCallback(() => {
+    if (!validSlug) return;
+    trackAnalyticsEvent('PRESENTATION_DOWNLOAD', validSlug);
+  }, [validSlug]);
+
+  /** Used by the viewer's error fallback, which offers a download escape. */
   const handleDownload = useCallback(() => {
     if (!validSlug || !product || !isAvailable) return;
     trackAnalyticsEvent('PRESENTATION_DOWNLOAD', validSlug);
@@ -148,14 +160,11 @@ export const ProductPage: React.FC = () => {
             </button>
 
             {isAvailable && (
-              <button
-                type="button"
-                className="btn btn--primary viewer-bar__download"
-                onClick={handleDownload}
-              >
-                <Download size={16} aria-hidden="true" />
-                <span>{t('actions.download')}</span>
-              </button>
+              <DownloadPresentationButton
+                slug={validSlug}
+                filename={product.downloadFilename}
+                onDownloaded={handleDownloadTracked}
+              />
             )}
           </div>
         </div>
