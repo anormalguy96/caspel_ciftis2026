@@ -1,11 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { Hero } from '../components/Hero';
 import { CaspelAIEntry } from '../components/CaspelAIEntry';
 import { ProductCard } from '../components/ProductCard';
 import { RequestDemoModal } from '../components/RequestDemoModal';
-import { CaspelAIModal } from '../components/CaspelAIModal';
+import { safeLazy } from '../utils/safeLazy';
+
+/**
+ * The assistant is loaded on demand.
+ *
+ * It brings the transcript, the voice recorder, the citation cards and the
+ * slide-preview loader with it -- none of which a visitor who only reads the
+ * product list ever needs. safeLazy rather than a bare lazy() so a chunk that
+ * disappeared under a mid-session deployment recovers instead of showing a
+ * blank panel.
+ *
+ * There is no Suspense fallback on purpose: the overlay renders nothing until
+ * it is opened, and the chunk is prefetched on first intent, so by the time
+ * isOpen flips the code is already there.
+ */
+const CaspelAIModal = safeLazy<
+  React.ComponentType<{
+    isOpen: boolean;
+    onClose: () => void;
+    initialQuestion?: string;
+  }>
+>(() => import('../components/CaspelAIModal'), 'CaspelAIModal');
 import { Footer } from '../components/Footer';
 import { ActionArrow } from '../components/ActionArrow';
 import { useProducts } from '../config/products';
@@ -45,6 +66,23 @@ export const LandingPage: React.FC = () => {
     setIsDemoModalOpen(true);
   };
 
+  /**
+   * Warm the assistant chunk on first intent.
+   *
+   * Guarded by a ref rather than state: this must not re-render the page, and
+   * a visitor moving the pointer across the card should trigger exactly one
+   * fetch. A failure is swallowed -- this is an optimisation, and the real
+   * import on open reports its own errors through safeLazy.
+   */
+  const assistantPrefetched = useRef(false);
+  const prefetchAssistant = useCallback(() => {
+    if (assistantPrefetched.current) return;
+    assistantPrefetched.current = true;
+    void import('../components/CaspelAIModal').catch(() => {
+      assistantPrefetched.current = false;
+    });
+  }, []);
+
   const handleOpenAi = useCallback((question?: string) => {
     trackAnalyticsEvent('AI_OPEN');
     setSeedQuestion(question);
@@ -63,7 +101,7 @@ export const LandingPage: React.FC = () => {
         <div className="landing-stage">
           <Hero />
           <div className="container landing-stage__assistant">
-            <CaspelAIEntry onAsk={handleOpenAi} />
+            <CaspelAIEntry onAsk={handleOpenAi} onIntent={prefetchAssistant} />
           </div>
         </div>
 

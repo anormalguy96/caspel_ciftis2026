@@ -75,7 +75,7 @@ type ModuleRecord = Record<string, unknown>;
  * The loader half of safeLazy, exported so the recovery behaviour can be
  * tested directly instead of through Suspense and an error boundary.
  */
-export function createSafeLoader<T extends ComponentType<unknown>>(
+export function createSafeLoader<T extends ComponentType<any>>(  // eslint-disable-line @typescript-eslint/no-explicit-any
   importFn: () => Promise<ModuleRecord>,
   exportName: string
 ): () => Promise<{ default: T }> {
@@ -100,7 +100,7 @@ export function createSafeLoader<T extends ComponentType<unknown>>(
   };
 }
 
-export function safeLazy<T extends ComponentType<unknown>>(
+export function safeLazy<T extends ComponentType<any>>(  // eslint-disable-line @typescript-eslint/no-explicit-any
   importFn: () => Promise<ModuleRecord>,
   exportName: string
 ) {
