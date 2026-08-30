@@ -133,6 +133,21 @@ button {
   border-color: var(--color-dark);
 }
 
+.field__textarea {
+  min-height: 96px;
+  padding: var(--space-sm) var(--space-md);
+  resize: vertical;
+  line-height: 1.55;
+  font-family: inherit;
+}
+
+.field__optional {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: var(--space-xs);
+}
+
 /* ── Inline error / state notice ─────────────────────────── */
 .form-error {
   display: flex;

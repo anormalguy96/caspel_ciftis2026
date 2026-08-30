@@ -7,6 +7,7 @@ class LeadCreate(BaseModel):
     company: str = Field(..., min_length=1, max_length=255, description="Company name")
     business_email: EmailStr = Field(..., max_length=255, description="Corporate email address")
     interest: str = Field(..., description="Solution of interest")
+    message: Optional[str] = Field(None, max_length=2000, description="Optional custom request message or notes from company representative")
     honeypot: Optional[str] = Field(None, max_length=100, description="Spam protection field (should be empty)")
 
     @field_validator("interest")

@@ -21,6 +21,7 @@ class Lead(Base):
     company = Column(String(255), nullable=False)
     business_email = Column(String(255), nullable=False, index=True)
     interest = Column(String(50), nullable=False)
+    message = Column(Text, nullable=True)
     notification_status = Column(String(50), default="pending", nullable=False)
     notification_attempts = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

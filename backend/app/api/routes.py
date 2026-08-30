@@ -287,6 +287,7 @@ async def create_lead(
             company=payload.company.strip(),
             business_email=str(payload.business_email).strip().lower(),
             interest=payload.interest.strip().lower(),
+            message=payload.message.strip() if payload.message and payload.message.strip() else None,
             notification_status="pending",
             notification_attempts=0,
         )

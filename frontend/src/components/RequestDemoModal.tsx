@@ -31,6 +31,7 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
     company: '',
     business_email: '',
     interest: defaultProduct,
+    message: '',
     honeypot: '',
   });
 
@@ -233,6 +234,21 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="field">
+              <label className="field__label" htmlFor="demo-message">
+                {t('demoForm.messageLabel')} <span className="field__optional">{t('demoForm.optional')}</span>
+              </label>
+              <textarea
+                id="demo-message"
+                className="field__input field__textarea"
+                rows={3}
+                maxLength={2000}
+                placeholder={t('demoForm.messagePlaceholder')}
+                value={formData.message || ''}
+                onChange={(e) => update({ message: e.target.value })}
+              />
             </div>
 
             <button type="submit" className="btn btn--primary btn--block" disabled={isSubmitting}>

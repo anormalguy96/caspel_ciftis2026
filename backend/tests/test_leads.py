@@ -57,3 +57,20 @@ async def test_create_lead_honeypot_discard(client: AsyncClient):
     assert data["success"] is True
     # Honeypot silently discards insert without creating an ID
     assert data.get("id") is None
+
+
+@pytest.mark.asyncio
+async def test_create_lead_with_custom_message(client: AsyncClient):
+    payload = {
+        "name": "Zhang Wei",
+        "company": "Beijing Enterprise Systems Ltd",
+        "business_email": "zhang.wei@bj-enterprise.cn",
+        "interest": "pms",
+        "message": "We would like to request an on-site technical demonstration at our Beijing office regarding PMS e-tendering integration.",
+    }
+    response = await client.post("/api/leads", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["success"] is True
+    assert data["id"] is not None
+

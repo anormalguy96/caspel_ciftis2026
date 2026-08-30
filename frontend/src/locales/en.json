@@ -68,6 +68,9 @@
     "emailLabel": "Business Email",
     "emailPlaceholder": "e.g. name@company.com",
     "interestLabel": "Solution of Interest",
+    "messageLabel": "Project Scope or Specific Requirements",
+    "messagePlaceholder": "Tell us about your organization's technical needs, timeline, or key questions...",
+    "optional": "(Optional)",
     "successTitle": "Thank You!",
     "successMessage": "Thank you. Your request has been received. Our team will contact you shortly."
   },

@@ -14,6 +14,7 @@ export interface LeadFormData {
   company: string;
   business_email: string;
   interest: string;
+  message?: string;
   honeypot?: string;
 }
 

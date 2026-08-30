@@ -68,6 +68,9 @@
     "emailLabel": "企业邮箱",
     "emailPlaceholder": "例如：name@company.com",
     "interestLabel": "感兴趣的解决方案",
+    "messageLabel": "项目范围或特定需求",
+    "messagePlaceholder": "请描述贵机构的技术需求、预期排期或关注要点…",
+    "optional": "（可选）",
     "successTitle": "感谢您的申请",
     "successMessage": "我们已收到您的申请，团队会尽快与您联系。"
   },
