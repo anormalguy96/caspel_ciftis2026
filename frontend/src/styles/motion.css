@@ -220,6 +220,24 @@
 }
 
 /* ============================================================
+   VIEW TRANSITIONS — Progressive Enhancement
+   ============================================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-ui);
+  animation-timing-function: var(--ease-both);
+}
+
+::view-transition-old(root) {
+  animation-name: backdropOut;
+}
+
+::view-transition-new(root) {
+  animation-name: backdropIn;
+}
+
+/* ============================================================
    REDUCED MOTION
 
    Collapsing the duration tokens is not enough on its own: the two
@@ -242,6 +260,12 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 
   .u-skeleton { opacity: 1; }

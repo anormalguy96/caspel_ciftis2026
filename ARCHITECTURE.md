@@ -159,6 +159,11 @@ point the wrong way. No literal `→` or `↗` glyph appears in visitor-facing J
   any transition — and animates transform and opacity. `transition: all` is
   banned. The ambient's own 37–79s periods are literal and deliberately
   co-prime, so the composition never visibly repeats.
+- **View Transitions**: Progressive enhancement via `transitionNavigate()`
+  wrapping `document.startViewTransition()` and React `flushSync`. Unsupported
+  browsers and `prefers-reduced-motion: reduce` fallback immediately to standard
+  navigation. Shared element names (`product-title-${slug}`, `product-desc-${slug}`)
+  provide object continuity between landing solution rows and product page headers.
 
 #### Layering and CJK typography
 

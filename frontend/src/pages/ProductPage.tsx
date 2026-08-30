@@ -10,6 +10,7 @@ import { useProduct } from '../config/products';
 import { usePresentationManifest } from '../hooks/usePresentationManifest';
 import { downloadPresentation } from '../services/presentations';
 import { trackAnalyticsEvent } from '../services/analytics';
+import { transitionNavigate } from '../utils/transitionNavigate';
 import caspelIcon from '../assets/caspel-icon.svg';
 
 /**
@@ -76,8 +77,8 @@ export const ProductPage: React.FC = () => {
    */
   const goBack = useCallback(() => {
     const hasAppHistory = (location.key ?? 'default') !== 'default';
-    if (hasAppHistory) navigate(-1);
-    else navigate('/');
+    if (hasAppHistory) transitionNavigate(navigate, -1);
+    else transitionNavigate(navigate, '/');
   }, [navigate, location.key]);
 
   if (!product || !validSlug) {
@@ -98,8 +99,18 @@ export const ProductPage: React.FC = () => {
           </button>
 
           <div className="viewer-bar__identity">
-            <span className="viewer-bar__name">{product.name}</span>
-            <span className="viewer-bar__descriptor">{product.descriptor}</span>
+            <span
+              className="viewer-bar__name"
+              style={{ viewTransitionName: `product-title-${product.slug}` } as React.CSSProperties}
+            >
+              {product.name}
+            </span>
+            <span
+              className="viewer-bar__descriptor"
+              style={{ viewTransitionName: `product-desc-${product.slug}` } as React.CSSProperties}
+            >
+              {product.descriptor}
+            </span>
           </div>
 
           <div className="viewer-bar__meta" aria-live="polite">

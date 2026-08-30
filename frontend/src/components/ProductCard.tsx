@@ -1,8 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ProductConfig } from '../types';
 import { trackAnalyticsEvent } from '../services/analytics';
 import { ActionArrow } from './ActionArrow';
+import { transitionNavigate } from '../utils/transitionNavigate';
 
 interface ProductCardProps {
   product: ProductConfig;
@@ -17,8 +18,14 @@ interface ProductCardProps {
  * corporate site read as a template.
  */
 export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) => {
-  const handleClick = () => {
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     trackAnalyticsEvent(`${product.slug.toUpperCase()}_CLICK`, product.slug);
+    if (!e.defaultPrevented && e.button === 0 && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      transitionNavigate(navigate, `/product/${product.slug}`);
+    }
   };
 
   return (
@@ -35,8 +42,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, index = 0 }) 
       </span>
 
       <span className="card-link__text">
-        <span className="card-link__name">{product.name}</span>
-        <span className="card-link__descriptor">{product.descriptor}</span>
+        <span
+          className="card-link__name"
+          style={{ viewTransitionName: `product-title-${product.slug}` } as React.CSSProperties}
+        >
+          {product.name}
+        </span>
+        <span
+          className="card-link__descriptor"
+          style={{ viewTransitionName: `product-desc-${product.slug}` } as React.CSSProperties}
+        >
+          {product.descriptor}
+        </span>
       </span>
 
       <span className="card-link__arrow" aria-hidden="true">
