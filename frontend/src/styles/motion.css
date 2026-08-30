@@ -14,41 +14,45 @@
 
 /* ── Duration scale ─────────────────────────────────────────── */
 :root {
-  --dur-tap:    90ms;   /* press/release confirm */
+  --dur-tap:    80ms;   /* instant press confirm */
   --dur-micro:  120ms;  /* colour and opacity micro-changes */
-  --dur-ui:     160ms;  /* control state, arrow nudge */
-  --dur-panel:  220ms;  /* sheet/modal entrance */
-  --dur-exit:   140ms;  /* always shorter than entrance */
-  /* Stagger is a hint of sequence, not a performance: four cards finish
-     entering 120ms apart from the first, not 280ms. */
-  --stagger-step: 40ms;
+  --dur-ui:     180ms;  /* control state, arrow nudge */
+  --dur-panel:  240ms;  /* sheet/modal entrance */
+  --dur-exit:   130ms;  /* snappy accelerated exit */
+  /* Stagger is an intentional sequence: cards finish smoothly */
+  --stagger-step: 45ms;
   --stagger-max: 3;
 }
 
-/* ── Easing scale ───────────────────────────────────────────── */
+/* ── Easing scale — Mathematical & Physics-Based Curves ────── */
 :root {
-  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);    /* decelerate: arriving */
-  --ease-in:   cubic-bezier(0.4, 0, 1, 1);       /* accelerate: leaving  */
-  --ease-both: cubic-bezier(0.45, 0, 0.55, 1);   /* symmetric: toggles   */
+  --ease-out:       cubic-bezier(0.16, 1, 0.3, 1);       /* quintic decelerate */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);       /* silky arrival */
+  --ease-spring:    cubic-bezier(0.34, 1.35, 0.64, 1);   /* tactile spring micro-bounce */
+  --ease-elastic:   cubic-bezier(0.68, -0.55, 0.265, 1.55); /* overshoot accent */
+  --ease-in:        cubic-bezier(0.4, 0, 1, 1);          /* accelerate: leaving */
+  --ease-in-quad:   cubic-bezier(0.4, 0, 1, 1);          /* snappy exit */
+  --ease-both:      cubic-bezier(0.45, 0, 0.55, 1);      /* symmetric toggle */
+  --ease-fluid:     cubic-bezier(0.25, 0.1, 0.25, 1);    /* smooth state morph */
 }
 
 /* ============================================================
-   KEYFRAMES — transform/opacity only
+   KEYFRAMES — transform/opacity only (GPU-Composited)
    ============================================================ */
 
 @keyframes fadeRise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px) scale(0.988); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes panelIn {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes panelOut {
   from { opacity: 1; transform: none; }
-  to   { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 0; transform: translateY(10px) scale(0.985); }
 }
 
 @keyframes backdropIn  { from { opacity: 0; } to { opacity: 1; } }
@@ -69,15 +73,19 @@
 
 @keyframes dotBounce {
   0%, 80%, 100% { opacity: 0.35; transform: none; }
-  40%           { opacity: 1;    transform: translateY(-3px); }
+  40%           { opacity: 1;    transform: translateY(-4px) scale(1.1); }
 }
 
-/* Loading placeholders breathe on opacity only. No gradient sweep: a
-   travelling highlight is decoration, and it keeps drawing the eye to a
-   region that has nothing to read. */
+/* Loading placeholders breathe on opacity only. */
 @keyframes skeletonBreathe {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.55; }
+}
+
+/* Ambient breathing aura for interactive signals */
+@keyframes pulseAura {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
 }
 
 /* ── Scroll-reveal keyframes ───────────────────────────────────
@@ -86,17 +94,17 @@
    ────────────────────────────────────────────────────────────── */
 
 @keyframes scrollReveal {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(22px) scale(0.985); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes scrollRevealSubtle {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
 
 @keyframes scrollScaleIn {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.965); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -106,7 +114,7 @@
    ────────────────────────────────────────────────────────────── */
 
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(18px); }
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -253,11 +261,11 @@
 
 .modal--chat.u-panel {
   transform-origin: left center;
-  animation: chatPanelIn var(--dur-panel) var(--ease-out) both;
+  animation: chatPanelIn var(--dur-panel) var(--ease-out-expo) both;
 }
 
 .modal--chat.u-panel[data-state='closing'] {
-  animation: chatPanelOut var(--dur-exit) var(--ease-in) both;
+  animation: chatPanelOut var(--dur-exit) var(--ease-in-quad) both;
 }
 
 @media (max-width: 700px) {
@@ -277,8 +285,8 @@
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
   .u-page-enter {
-    animation: pageEnter 500ms var(--ease-out) both;
-    animation-delay: calc(var(--i, 0) * 80ms);
+    animation: pageEnter 500ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
   }
 }
 

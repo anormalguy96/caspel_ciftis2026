@@ -75,7 +75,7 @@
   transition:
     background-color var(--dur-micro) var(--ease-both),
     color            var(--dur-micro) var(--ease-both),
-    transform        var(--dur-tap)   var(--ease-out);
+    transform        var(--dur-tap)   var(--ease-spring);
 }
 
 .modal__close:active {
