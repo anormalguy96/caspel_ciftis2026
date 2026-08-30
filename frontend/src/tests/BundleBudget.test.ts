@@ -22,14 +22,17 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Recorded from merged main (f5f3455) before this pass, in bytes. */
 const BASELINE = {
-  initialJs: 278_957, // index 103.24k + vendor 162.10k + icons 7.08k
-  initialCss: 70_502, // index.css 68.85k
+  // Exact bytes from the emitted build, not vite's rounded kB display -- the
+  // rounded figures were off by ~4 kB, which is larger than some real
+  // regressions this check exists to catch.
+  initialJs: 274_532, // index 105,346 + vendor 162,104 + icons 7,082
+  initialCss: 68_848,
 };
 
 /** 5% headroom over what this pass actually achieves. */
 const BUDGET = {
   initialJs: 268_000,
-  initialCss: 74_000,
+  initialCss: 74_000, // 70,097 actual; the new control and citation rules
 };
 
 function findDist(): string | null {

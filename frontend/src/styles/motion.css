@@ -100,9 +100,6 @@
   50%      { opacity: 0.55; }
 }
 
-/* Ambient breathing aura for interactive signals */
-
-}
 
 /* ── Scroll-reveal keyframes ───────────────────────────────────
    Linked to animation-timeline: view() — progress-driven, not
