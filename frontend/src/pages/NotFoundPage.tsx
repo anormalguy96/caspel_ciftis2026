@@ -18,7 +18,7 @@ export const NotFoundPage: React.FC = () => (
       <p className="not-found__code">404</p>
       <h1 className="not-found__title">This page isn&rsquo;t part of the CASPEL hub</h1>
       <p className="not-found__text">
-        The link may be out of date. Everything CASPEL is showing at CIFTIS 2026 is one tap away.
+        The link may be out of date. Everything in the CASPEL presentation hub is one tap away.
       </p>
       <Link to="/" className="btn btn--primary">
         Back to CASPEL solutions

@@ -34,8 +34,6 @@ export const Header: React.FC = () => {
           <img src={ciftisLogo} alt="CIFTIS 2026" className="site-header__ciftis-logo" width={297} height={231} loading="eager" />
         </Link>
 
-        <p className="site-header__event">{t('brand.exhibition')}</p>
-
         <LanguageSwitcher className="site-header__lang" />
       </div>
     </header>

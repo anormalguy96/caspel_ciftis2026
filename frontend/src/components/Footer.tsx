@@ -43,7 +43,6 @@ export const Footer: React.FC = () => {
             <span className="site-footer__logo-divider" aria-hidden="true" />
             <img src={ciftisLogo} alt="CIFTIS 2026" className="site-footer__ciftis-logo" width={297} height={231} loading="lazy" />
           </div>
-          <p className="site-footer__event">{t('brand.exhibition')}</p>
         </div>
 
         <nav className="site-footer__links" aria-label={t('footer.contactLabel')}>
