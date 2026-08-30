@@ -6,6 +6,15 @@ import { ActionArrow } from './ActionArrow';
 interface CaspelAIEntryProps {
   /** Opens the assistant. A question, when given, is the visitor's opening message. */
   onAsk: (question?: string) => void;
+  /**
+   * Fired when a visitor looks like they are about to open the assistant --
+   * pointer over the card, keyboard focus, or a finger down on it.
+   *
+   * Used to warm the assistant's chunk. It is only ever a hint: opening works
+   * identically if it never fires, and it deliberately does not fire on mere
+   * page load, because most visitors never open the assistant at all.
+   */
+  onIntent?: () => void;
 }
 
 /**
@@ -28,12 +37,19 @@ interface CaspelAIEntryProps {
  * would advertise an answer the retrieval index cannot ground, and the
  * assistant would correctly refuse it in front of the visitor.
  */
-export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk }) => {
+export const CaspelAIEntry: React.FC<CaspelAIEntryProps> = ({ onAsk, onIntent }) => {
   const { t } = useTranslation();
   const suggestions = t('aiEntry.suggestions', { returnObjects: true }) as string[];
 
   return (
-    <section className="ai-entry u-page-enter" aria-labelledby="ai-entry-heading" style={{ '--i': 3 } as React.CSSProperties}>
+    <section
+      className="ai-entry u-page-enter"
+      aria-labelledby="ai-entry-heading"
+      style={{ '--i': 3 } as React.CSSProperties}
+      onPointerEnter={onIntent}
+      onFocusCapture={onIntent}
+      onTouchStart={onIntent}
+    >
       <button type="button" className="ai-entry__prompt" onClick={() => onAsk()}>
         {/* The same duotone badge the chat header uses, so opening the
             assistant reads as this card expanding rather than a new surface. */}

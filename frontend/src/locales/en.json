@@ -56,7 +56,9 @@
     "close": "Close",
     "retry": "Try again",
     "openInNewTab": "Open in new tab",
-    "contact": "Contact CASPEL"
+    "contact": "Contact CASPEL",
+    "downloadStarted": "Download started",
+    "downloadFailed": "Download failed"
   },
   "demoForm": {
     "title": "Request a Demo",

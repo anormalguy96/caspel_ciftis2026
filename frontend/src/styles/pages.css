@@ -194,10 +194,88 @@
   white-space: nowrap;
 }
 
+/* ============================================================
+   Presentation download
+   ------------------------------------------------------------
+   At the stand this is the thing a visitor wants to walk away
+   with, so it is sized as a primary action rather than a small
+   secondary button. 50px tall, comfortably padded, and wide
+   enough that neither the English nor the Chinese label wraps.
+   ============================================================ */
 .viewer-bar__download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
   flex-shrink: 0;
-  padding: 0 var(--space-md);
-  font-size: 14px;
+  /* 50px sits inside the 48-52px band; the interactive box is the same
+     element, so it clears the 44px minimum by construction. */
+  min-block-size: 50px;
+  padding-inline: var(--space-lg);
+  font-size: 15px;
+  font-weight: 600;
+  /* The label is short in both languages and must never wrap to two lines
+     inside a 50px control. */
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    color            var(--dur-micro) var(--ease-both),
+    transform        var(--dur-tap)   var(--ease-out);
+}
+
+.viewer-bar__download:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Three glyphs in one grid cell: the confirmation swap cannot resize the
+   control while a finger is still on it. */
+.viewer-bar__download-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 18px;
+  block-size: 18px;
+  flex: 0 0 auto;
+}
+
+.viewer-bar__download-glyph {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity   var(--dur-micro) var(--ease-both),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.viewer-bar__download[data-state='idle'] .viewer-bar__download-glyph--rest,
+.viewer-bar__download[data-state='starting'] .viewer-bar__download-glyph--rest,
+.viewer-bar__download[data-state='started'] .viewer-bar__download-glyph--done,
+.viewer-bar__download[data-state='failed'] .viewer-bar__download-glyph--fail {
+  opacity: 1;
+  transform: none;
+}
+
+.viewer-bar__download[data-state='failed'] {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer-bar__download,
+  .viewer-bar__download-glyph {
+    transition: none;
+  }
+}
+
+/* On a phone the bar is the only place this control can live without sitting
+   on top of the slides. It stays in the sticky bar and grows to share the row
+   rather than becoming a full-width banner of its own. */
+@media (max-width: 560px) {
+  .viewer-bar__download {
+    flex: 1 1 auto;
+    justify-content: center;
+    /* Never wider than the row, and never edge-to-edge on a large phone. */
+    max-inline-size: 320px;
+    padding-inline: var(--space-md);
+  }
 }
 
 .viewer-main {

@@ -56,7 +56,9 @@
     "close": "关闭",
     "retry": "重试",
     "openInNewTab": "在新标签页中打开",
-    "contact": "联系 CASPEL"
+    "contact": "联系 CASPEL",
+    "downloadStarted": "已开始下载",
+    "downloadFailed": "下载失败"
   },
   "demoForm": {
     "title": "预约演示",
