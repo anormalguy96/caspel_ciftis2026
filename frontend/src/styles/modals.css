@@ -13,7 +13,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background-color: rgba(6, 48, 68, 0.45);
+  background-color: rgba(3, 22, 33, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .modal {
@@ -25,8 +27,9 @@
   max-height: 92dvh;
   padding: var(--space-lg);
   background-color: var(--color-surface);
+  border: 1px solid rgba(81, 183, 72, 0.18);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow-modal);
+  box-shadow: 0 24px 60px rgba(0, 14, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow-y: auto;
   /* Clear the iPhone home indicator. */
   padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
@@ -91,6 +94,75 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+}
+
+/* Product selector segmented pill buttons */
+.demo-pills {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-xs);
+  margin-top: 4px;
+}
+
+.demo-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 10px 14px;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-micro) var(--ease-both),
+    background-color var(--dur-micro) var(--ease-both),
+    color var(--dur-micro) var(--ease-both),
+    box-shadow var(--dur-micro) var(--ease-both),
+    transform var(--dur-tap) var(--ease-out);
+}
+
+.demo-pill:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .demo-pill:hover:not(.demo-pill--active) {
+    border-color: rgba(81, 183, 72, 0.4);
+    color: var(--color-text);
+  }
+}
+
+.demo-pill__indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-text-muted);
+  flex-shrink: 0;
+  transition:
+    background-color var(--dur-micro) var(--ease-both),
+    border-color var(--dur-micro) var(--ease-both),
+    transform var(--dur-micro) var(--ease-both);
+}
+
+.demo-pill--active {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-ink);
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(81, 183, 72, 0.15);
+}
+
+.demo-pill--active .demo-pill__indicator {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  transform: scale(1.2);
 }
 
 .field__select {

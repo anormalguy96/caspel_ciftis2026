@@ -46,8 +46,33 @@
 }
 
 .btn--primary {
+  position: relative;
+  overflow: hidden;
   background-color: var(--color-dark);
   color: #ffffff;
+}
+
+.btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 100%
+  );
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:not(:disabled):hover::before {
+    transform: translateX(200%);
+  }
 }
 
 /* CASPEL green marks the single most important action on a screen.
@@ -1419,7 +1444,22 @@
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform var(--dur-ui) var(--ease-out);
 }
 
 .action-arrow--sm { width: 13px; height: 13px; }
 .action-arrow--md { width: 16px; height: 16px; }
+
+@media (hover: hover) and (pointer: fine) {
+  *:hover > .action-arrow--internal,
+  a:hover .action-arrow--internal,
+  button:hover .action-arrow--internal {
+    transform: translateX(4px);
+  }
+
+  *:hover > .action-arrow--external,
+  a:hover .action-arrow--external,
+  button:hover .action-arrow--external {
+    transform: translate(3px, -3px);
+  }
+}

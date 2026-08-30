@@ -198,14 +198,34 @@ export const RequestDemoModal: React.FC<RequestDemoModalProps> = ({
             </div>
 
             <div className="field">
-              <label className="field__label" htmlFor="demo-interest">
+              <label className="field__label" id="demo-interest-label" htmlFor="demo-interest">
                 {t('demoForm.interestLabel')} *
               </label>
+              <div className="demo-pills" role="radiogroup" aria-labelledby="demo-interest-label">
+                {INTEREST_OPTIONS.map((option) => {
+                  const isSelected = formData.interest === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      className={`demo-pill ${isSelected ? 'demo-pill--active' : ''}`}
+                      onClick={() => update({ interest: option.value })}
+                    >
+                      <span className="demo-pill__indicator" aria-hidden="true" />
+                      <span className="demo-pill__label">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <select
                 id="demo-interest"
-                className="field__input field__select"
+                className="visually-hidden"
                 value={formData.interest}
                 onChange={(e) => update({ interest: e.target.value })}
+                tabIndex={-1}
+                aria-hidden="true"
               >
                 {INTEREST_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>

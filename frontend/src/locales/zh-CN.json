@@ -9,13 +9,13 @@
   },
   "brand": {
     "name": "CASPEL",
-    "exhibition": "CIFTIS 2026 · 北京",
+    "exhibition": "CIFTIS 2026",
     "tagline": "数字演示中心",
     "homeLabel": "CASPEL — CIFTIS 2026 数字展示中心"
   },
   "hero": {
     "title": "CASPEL 企业解决方案",
-    "subtitle": "面向企业资源计划、采购管理与海事监控的企业级软件，于北京 CIFTIS 2026 展出。"
+    "subtitle": "面向企业资源计划、采购管理与海事监控的企业级软件。"
   },
   "products": {
     "caspel": {
@@ -76,7 +76,7 @@
     "subtitle": "官方展会智能助手",
     "scope": "回答均来自已发布的 CASPEL 演示材料。",
     "placeholder": "咨询 CASPEL ERP、PMS 或 IRISSEA…",
-    "greeting": "欢迎访问 CASPEL 在 CIFTIS 2026 的展台。您可以就我们的企业软件产品与演示材料提出任何问题。",
+    "greeting": "欢迎访问 CASPEL AI。您可以就我们的企业软件产品与演示材料提出任何问题。",
     "suggestedPrompt": "推荐问题：",
     "questions": [
       "Caspel ERP 是什么？包含哪些模块？",
@@ -108,7 +108,7 @@
     "dismissPrompt": "轻触任意位置返回影片",
     "touchToStart": "轻触屏幕开始播放",
     "scanTitle": "扫码在手机上浏览",
-    "fallbackTitle": "CASPEL 亮相 CIFTIS 2026",
+    "fallbackTitle": "CASPEL 解决方案",
     "returning": "{seconds} 秒后返回影片"
   },
   "footer": {
@@ -121,7 +121,7 @@
   },
   "presentation": {
     "unavailableTitle": "尚未发布",
-    "unavailableText": "该演示文稿尚未在 CIFTIS 2026 发布。CASPEL 展台的团队可以为您现场讲解。",
+    "unavailableText": "该演示文稿尚未发布。CASPEL 展台的团队可以为您现场讲解。",
     "errorTitle": "无法获取演示文稿状态",
     "errorText": "暂时无法连接 CASPEL 服务器以确认已发布的演示文稿。这是临时的连接问题，并非文档缺失。",
     "viewerErrorTitle": "无法显示该演示文稿",
@@ -143,7 +143,7 @@
   },
   "meta": {
     "title": "CASPEL — CIFTIS 2026 数字展示中心",
-    "description": "CASPEL 亮相北京 CIFTIS 2026。可浏览并下载公司介绍、Caspel ERP、Caspel PMS 与 IRISSEA LRIT 演示文稿，并预约演示。"
+    "description": "CASPEL 企业级解决方案。可浏览并下载公司介绍、Caspel ERP、Caspel PMS 与 IRISSEA LRIT 演示文稿，并预约演示。"
   },
   "pdf": {
     "previous": "上一页",
