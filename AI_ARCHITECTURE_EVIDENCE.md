@@ -23,6 +23,10 @@ and did not survive contact with primary documentation or measurement.
 | Cached tokens are 90% cheaper | **Unsupported** | The page states savings are passed on; no percentage is given. |
 | Streaming feels "40–60% faster" | **Withdrawn** | Replaced with measured TTFT from this application. |
 | Score clustering shows slide chunking is defective | **Withdrawn** | A slide is also the natural citation boundary, and retrieval scores 100%. No experiment supports changing it. |
+| OCR quality is poor on 39 of 65 pages | **Withdrawn** | The heuristic counted Azerbaijani orthography and product abbreviations as corruption. Corrected: 4 pages, one cosmetic artifact, no retrieval impact (§6). |
+| Landing LCP is 3.34 s | **Withdrawn** | Measured against an uncompressed scratchpad server. Against the real nginx image it is **2.13 s** (§7). |
+| The ERP viewer blocks for 1,090 ms | **Withdrawn** | A single run. The three-run median for the same build is **160 ms** (§7). |
+| Byte-range PDF loading would be faster | **Tested and rejected** | It works, and it is slower: corporate TBT 51 → 218 ms, ERP 160 → 373 ms. Reverted (§7). |
 
 ---
 
@@ -255,7 +259,245 @@ a property of the slide, not a defect.
 
 ---
 
-## 7. Configuration
+## 7. Performance — measured
+
+### Environment
+
+| | |
+|---|---|
+| Lighthouse | 12.8.2 |
+| Browser | HeadlessChrome 131.0.0.0 |
+| Host | Windows 11, Docker Desktop |
+| Surface | the project's own nginx image, `127.0.0.1:8080` |
+| Form factor | mobile, 412×823 @ DPR 1.75 |
+| Throttling | simulated; RTT 150 ms, 1,638 kbps, CPU ×4 |
+| Cache | cold — Lighthouse uses a fresh profile per run |
+| Runs | 3 per route; the table reports **medians** |
+
+### The first measurement was invalid, and saying so matters
+
+The first Lighthouse pass ran against a plain static file server in the
+scratchpad. That server does not compress. Lighthouse duly reported *"Est
+savings of 241 KiB"* from text compression and produced LCP 3.34 s on the
+landing route.
+
+nginx has had `gzip on` the whole time. Those numbers measured the harness, not
+the product, and none of them are reported here. Everything below is against
+the nginx image that actually serves the site.
+
+This is the same failure as the OCR heuristic, one layer up: a measurement that
+looked like a result. The rule that caught both is to check what the instrument
+is attached to before believing what it says.
+
+### Results
+
+| Route | LCP | CLS | TBT | FCP | SI | Perf |
+|---|---|---|---|---|---|---|
+| `/` landing | **2.13 s** ✅ | **0.000** ✅ | **42 ms** ✅ | 1.76 s | 1.76 s | 98 |
+| `/display` | **2.19 s** ✅ | **0.000** ✅ | **82 ms** ✅ | 1.82 s | 2.88 s | 97 |
+| `/product/caspel` | 2.99 s ❌ | **0.015** ✅ | **51 ms** ✅ | 1.78 s | 3.49 s | 92 |
+| `/product/erp` | 3.02 s ❌ | **0.015** ✅ | **160 ms** ✅ | 1.70 s | 2.25 s | 91 |
+
+Targets: LCP ≤ 2.5 s, CLS ≤ 0.1, TBT ≤ 200 ms.
+
+**Two of four routes meet all three targets. The two PDF viewer routes miss LCP
+by roughly half a second.** No threshold was moved and no run was discarded to
+make that read better.
+
+TBT is a laboratory metric. It is not INP, which is field-only, and it is not
+reported as INP anywhere.
+
+### Why the viewer routes miss LCP
+
+The LCP element on both viewers is `.viewer-bar__meta` — the page-count label —
+and 84% of its LCP time is render delay, not network:
+
+```
+TTFB          462 ms   16%
+Load Delay      0 ms    0%
+Load Time       0 ms    0%
+Render Delay  2462 ms   84%
+```
+
+The label reads "41 pages", so it cannot paint until pdf.js has parsed enough of
+the document to know how many pages there are. LCP on these routes is therefore
+a measure of time-to-document-metadata. That is real latency a visitor
+experiences, not an artifact, and it is reported as a miss.
+
+Choosing a different element to be the LCP candidate would move the number
+without moving the experience, so it was not done.
+
+### An optimization that was measured and rejected
+
+The viewer sets `disableAutoFetch: true, disableStream: false`. A single ERP run
+had shown TBT 1,090 ms and 5,352 KiB transferred, which looked like the whole
+deck arriving before first paint. Switching to `disableStream: true` makes
+pdf.js fetch byte ranges instead, and the endpoint already answers `206` with
+`Accept-Ranges: bytes`.
+
+It worked — 13 partial responses instead of one full body — and it made things
+worse:
+
+| Route | Metric | `disableStream: false` | `disableStream: true` |
+|---|---|---|---|
+| corporate | TBT | **51 ms** | 218 ms |
+| corporate | Perf | **92** | 88 |
+| erp | TBT | **160 ms** | 373 ms |
+| erp | LCP | 3.02 s | **2.94 s** |
+| erp | Perf | **91** | 85 |
+
+Range requests trade one streamed body for a series of round trips at 150 ms
+each, and the parsing cost does not go away.
+
+**The change was reverted.** The 1,090 ms that motivated it was a single run;
+the three-run median for the same configuration is 160 ms. That is precisely the
+trap the ≥3-run protocol exists to prevent, and it nearly produced a
+"performance fix" for a problem that did not exist.
+
+### The one real defect found, and fixed
+
+`index.html` preloaded `fonts/Inter-var.woff2`. There is no `public/fonts`
+directory. The SPA fallback answered with `index.html`, so the request returned
+**200** and looked healthy; the browser discarded 2.7 KiB of HTML as the wrong
+type, and the font the stylesheet actually wanted was still discovered only
+after the CSS parsed.
+
+Measured on the landing route:
+
+| | Font requests |
+|---|---|
+| Before | 2 — `/assets/Inter-var-*.woff2` and `/fonts/Inter-var.woff2` (HTML) |
+| After | **1** — `/assets/Inter-var-BT1H-PT_.woff2`, `font/woff2` |
+
+The link is now injected from the bundle, so it always names the hashed file the
+CSS references, in both deployment modes. Two assertions in `BundleBudget.test.ts`
+fail if a preload target is missing from the build or does not match the CSS.
+
+No timing improvement is claimed for this. A paired before/after Lighthouse run
+was not performed, so the evidence is the request count and content type.
+
+### Bundle
+
+| | Raw | gzip |
+|---|---|---|
+| `vendor` | 162.1 kB | 52.9 kB |
+| `index` | 85.7 kB | 30.7 kB |
+| `index.css` | 71.8 kB | 13.6 kB |
+| `icons` | 7.1 kB | 1.9 kB |
+| **Initial total** | **326.7 kB** | **99.1 kB** |
+| `pdf` (lazy) | 365.1 kB | 107.6 kB |
+| `CaspelAIModal` (lazy) | 22.5 kB | 7.5 kB |
+| `qr` (lazy) | 16.7 kB | 6.3 kB |
+
+pdf.js, the AI modal, the QR generator and the display page stay out of the
+initial path. The budget test asserts this by reading the emitted build, not by
+timing anything, so CI and local agree.
+
+---
+
+## 8. Responsive and motion matrix — measured
+
+9 viewports × 2 languages × 8 surfaces = **144 cells**, driven through a real
+Chromium at the correct device pixel ratio and touch capability.
+
+Viewports: 320×568, 360×800, 375×812, 390×844, 768×1024, 820×1180, 1280×800,
+1440×900, 1920×1080. Languages: `en`, `zh-CN`. Surfaces: landing, landing
+scrolled, `/display`, both viewers, viewer scrolled, AI modal empty, AI modal
+with a typed question.
+
+Each cell is checked for horizontal overflow, elements bleeding past the
+viewport that no scroller explains, interactive targets under 44 px that are
+also crowded, text a clipping ancestor actually cuts off, and console errors.
+
+**Result: 0 failures across 144 cells.**
+
+### Two probe faults were found before any product change
+
+Both are worth recording, because in both cases the instrument was wrong and
+"fixing" the product would have made it worse.
+
+**Clipped text.** The first probe flagged any element whose `scrollHeight`
+exceeded its `clientHeight` while `overflow` was `visible`. That is not
+clipping; it is what `line-height: 0.98` looks like. It reported `.hero__title`
+on every mobile cell in both languages. An overflowing box only hides text when
+something clips it, so the probe now walks up to a clipping ancestor and checks
+the actual geometry.
+
+**Screen-reader-only labels.** A `.visually-hidden` element is a 1 px clip box
+by design. Once the clipping check was correct it reported all 36 of them.
+
+Neither produced a code change. The remaining check is the one that found the
+real download-control defect below.
+
+### Motion audit (post-#4)
+
+Read from the live CSSOM on every surface rather than by grepping stylesheets:
+
+| Forbidden pattern | Occurrences |
+|---|---|
+| `transition: all` | **0** |
+| Transition on an unbounded layout property | **0** |
+| Animated blur > 24 px | **0** |
+| Permanent compositor layers | **0** on landing, `/display` and both viewers |
+
+The only `will-change` in the project is `transform` on `.chat__ambient-field`
+and `.chat__ambient-loop`, six elements, present only while the AI modal is
+open and its ambient field is actually animating. Promoting an element that is
+continuously animating is what `will-change` is for.
+
+No Framer Motion, Lottie, GSAP, canvas or WebGL was added. Nothing measured
+suggested the current stack was the constraint.
+
+---
+
+## 9. Download control — audited, not redesigned
+
+The control was already correct in structure: a primary-sized button, three
+icons in a single grid cell so the confirmation swap cannot resize it, a live
+region for the announcement, and the verified endpoint owned by the service
+rather than built in the component.
+
+One thing it got wrong, and it took measurement to see: the **label** was not
+given the same treatment as the icons, and the label is the part that changes
+length.
+
+| | Width change across states | Left edge moves |
+|---|---|---|
+| Before, English | 54.3 px | up to 44 px |
+| Before, Chinese | 44.6 px | up to 44 px |
+| **After, both** | **0.0 px** | **0 px** |
+
+The button grew under the finger that had just pressed it, at every mobile
+viewport, in both languages — while the component's own comment asserted the
+swap "cannot resize the control". Every label state now shares one grid cell, so
+the control is as wide as its longest label. Reserving by layout rather than by
+a pixel constant means a retranslated label stays correct.
+
+### Verified per cell — 9 viewports × 2 languages, 0 failures
+
+| Property | Result |
+|---|---|
+| Resting size | 183.8 × 50 px (≥ 44 px in both axes) |
+| Reachable without scrolling | yes, every viewport |
+| Focusable, and keeps focus when pressed | yes |
+| Width change when pressed | 0 px |
+| Label wrapping | none |
+| Endpoint actually requested | `/api/presentations/caspel/download` |
+| Filename Chrome derived from `Content-Disposition` | `CASPEL_Corporate_Presentation.pdf` |
+| Announcement (en / zh-CN) | "Download started" / "已开始下载" |
+
+The filename is read from what Chrome derived, which verifies the header rather
+than trusting it: the endpoint returns `content-disposition: attachment;
+filename="CASPEL_Corporate_Presentation.pdf"`, `application/pdf`, 24,433,969
+bytes.
+
+A harness note, since it produced 18 false failures first: a download runs on
+the browser process, so neither Puppeteer's `response` event nor the page's
+`Network` domain ever observes it. `Browser.downloadWillBegin` does.
+
+---
+
+## 10. Configuration
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -265,18 +507,24 @@ a property of the slide, not a defect.
 
 ---
 
-## 8. Outstanding gates
+## 11. Outstanding gates
 
 Not established by this work and not to be reported as complete:
 
+- **LCP on the two PDF viewer routes.** Measured at 2.99 s and 3.02 s against a
+  2.5 s target. The cause is identified (§7) and the miss is not worked around.
 - **Real-user INP.** A field metric. Lab TBT is its only laboratory proxy and is
   labelled as such wherever it appears.
+- **Real-device measurement.** Every number here is Lighthouse's simulated
+  mobile throttling on a desktop CPU, not a phone.
 - **Fluent Simplified Chinese review.** Key parity proves no key is missing and
   says nothing about translation quality.
 - **Assistive-technology testing.** No VoiceOver, NVDA or TalkBack run has been
-  performed; keyboard and live-region results are programmatic checks.
+  performed; keyboard, focus and live-region results are programmatic checks.
+- **Real network conditions for the viewers.** The decks are 5.4 MB and 24 MB;
+  behaviour on exhibition Wi-Fi with many concurrent visitors is untested.
 - **Cold-start cache behaviour.** The probe never observed a miss.
 - **Cache cost saving.** No published percentage, none observed directly.
 - **Streaming under a production proxy.** Verified against the container nginx
-  configuration only.
+  configuration only, with `AI_STREAMING_ENABLED` still `false` by default.
 - **Public deployment.** Separate authorization; nothing here was deployed.
