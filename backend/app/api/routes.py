@@ -3,7 +3,7 @@ import logging
 from typing import Dict
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -16,7 +16,9 @@ from app.models.entities import AnalyticsEvent, Document, DocumentChunk, Lead
 from app.rag.embeddings import embedding_service
 from app.rag.errors import ProviderUnavailableError, RagError
 from app.rag.generation import generation_service
-from app.rag.service import rag_service
+from app.rag.citations import resolve_citations, strip_citation_markers
+from app.rag.service import _build_public_sources, rag_service
+from app.rag.streaming import stream_answer
 from app.rag.transcription import (
     TranscriptionRejected,
     transcription_service,
@@ -446,3 +448,85 @@ async def transcribe_endpoint(
         del raw
 
     return TranscriptionResponse(text=result.text)
+
+
+@router.post("/chat/stream")
+@limiter.limit(settings.RATE_LIMIT_CHAT)
+async def chat_stream_endpoint(
+    request: Request,
+    response: Response,
+    payload: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream a grounded answer as server-sent events.
+
+    Additive: /api/chat is unchanged and remains the default. This route only
+    answers when AI_STREAMING_ENABLED is set on the server, so a deployment
+    that has not verified streaming behind its own proxy simply does not have
+    it.
+
+    Everything that can fail with a status code is resolved before the first
+    byte -- retrieval, language, architecture. After that the status line is
+    already 200, so a later failure is an `error` event and the client must
+    not present the partial text as a finished answer.
+    """
+    if not settings.AI_STREAMING_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Streaming is not enabled on this deployment.",
+        )
+
+    try:
+        records, chunk_iter, _language, persist = await rag_service.prepare_stream(
+            db=db,
+            session_id=payload.session_id,
+            question=payload.message,
+            ui_locale=payload.ui_locale,
+        )
+    except RagError as e:
+        logger.error("CASPEL AI could not start a stream: %s", type(e).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CASPEL AI is temporarily unavailable. Please try again in a moment.",
+        )
+
+    async def frames():
+        collected: list[str] = []
+
+        def _record_and_forward(chunk: str) -> str:
+            collected.append(chunk)
+            return chunk
+
+        try:
+            async for frame in stream_answer(
+                generate_chunks=(_record_and_forward(c) for c in chunk_iter),
+                records=records,
+                resolve=resolve_citations,
+                build_sources=_build_public_sources,
+                heartbeat_every=settings.AI_STREAM_HEARTBEAT_CHUNKS,
+            ):
+                yield frame
+        except asyncio.CancelledError:
+            # The visitor navigated away or aborted. Nothing is persisted: an
+            # abandoned answer is not an answered question.
+            logger.info("Client disconnected during a streamed answer")
+            raise
+
+        # Persisted only on a clean finish, and only the text a visitor saw.
+        try:
+            answer_text = strip_citation_markers("".join(collected))
+            await persist(answer_text)
+        except Exception as e:  # noqa: BLE001
+            logger.error("Could not persist a streamed answer: %s", type(e).__name__)
+
+    return StreamingResponse(
+        frames(),
+        media_type="text/event-stream",
+        headers={
+            # Proxies must not collect the whole body before forwarding it;
+            # that turns a stream back into a single late response.
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
