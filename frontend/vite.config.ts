@@ -35,6 +35,58 @@ function publicConfigPlugin(basePath: string, publicUrl: string): Plugin {
   };
 }
 
+/**
+ * Preloads the font the stylesheet actually asks for.
+ *
+ * The font is imported from CSS, so the browser cannot discover it until the
+ * stylesheet has arrived and parsed. On a throttled mobile connection that is
+ * most of a second after the document, and text renders in the fallback face
+ * until it lands.
+ *
+ * index.html used to carry a hardcoded preload for `fonts/Inter-var.woff2`.
+ * That file does not exist -- there is no `public/fonts` directory. The SPA
+ * fallback answered the request with index.html, the browser discarded it as
+ * the wrong content type, and the real font was still discovered late. Measured
+ * on the landing route: two font requests, one of them 2.7 KiB of HTML, and no
+ * preload benefit at all.
+ *
+ * Only the build knows the hashed filename, so the link is injected from the
+ * bundle rather than written by hand. A renamed or removed font produces no
+ * preload instead of a broken one, and the base path comes from the same
+ * validated value as every other URL, so Mode A and Mode B both stay correct.
+ */
+function fontPreloadPlugin(basePath: string): Plugin {
+  return {
+    name: 'caspel-font-preload',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const font = Object.keys(ctx.bundle ?? {}).find((file) =>
+          /Inter-var.*.woff2$/.test(file)
+        );
+        if (!font) return html;
+        return {
+          html,
+          tags: [
+            {
+              tag: 'link',
+              attrs: {
+                rel: 'preload',
+                href: `${basePath}${font}`,
+                as: 'font',
+                type: 'font/woff2',
+                crossorigin: '',
+              },
+              injectTo: 'head',
+            },
+          ],
+        };
+      },
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
@@ -43,7 +95,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: basePath,
-    plugins: [react(), publicConfigPlugin(basePath, publicUrl)],
+    plugins: [react(), publicConfigPlugin(basePath, publicUrl), fontPreloadPlugin(basePath)],
     define: {
       // Mirrors the validated value into the bundle so paths.ts can expose it
       // without re-deriving anything at runtime.

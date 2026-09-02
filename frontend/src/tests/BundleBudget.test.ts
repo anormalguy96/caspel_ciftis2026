@@ -138,4 +138,46 @@ describeIfBuilt('initial bundle budget', () => {
     });
     expect(withPdfCore.length).toBeLessThanOrEqual(1);
   });
+
+  /**
+   * Every URL index.html tells the browser to fetch before anything else must
+   * actually exist.
+   *
+   * index.html carried a hardcoded `<link rel="preload" href=".../fonts/Inter-var.woff2">`
+   * for a file that was never there -- there is no `public/fonts` directory.
+   * The SPA fallback answered with index.html, so the request returned 200 and
+   * nothing looked broken; the browser silently discarded 2.7 KiB of HTML as
+   * the wrong content type, and the font the stylesheet actually wanted was
+   * still discovered late. A preload that costs a request on the critical path
+   * and warms nothing is worse than no preload at all.
+   *
+   * Measured, not asserted from memory: the landing route showed two font
+   * requests. This test fails on any preload whose target is not in the build.
+   */
+  it('preloads only files the build actually emits', () => {
+    const html = readFileSync(join(dist!, 'index.html'), 'utf8');
+    const hrefs = [...html.matchAll(/<link[^>]+rel="preload"[^>]*>/g)]
+      .map((m) => /href="([^"]+)"/.exec(m[0])?.[1])
+      .filter((h): h is string => Boolean(h));
+
+    expect(hrefs.length, 'the font preload should be present').toBeGreaterThan(0);
+
+    for (const href of hrefs) {
+      // Strip the base path; both deployment modes resolve to the same file.
+      const rel = href.replace(/^https?:\/\/[^/]+/, '').replace(/^\/+/, '');
+      const withoutBase = rel.replace(/^ciftis\//, '');
+      expect(existsSync(join(dist!, withoutBase)), `preload target missing: ${href}`).toBe(true);
+    }
+  });
+
+  it('preloads the font the stylesheet actually requests', () => {
+    const html = readFileSync(join(dist!, 'index.html'), 'utf8');
+    const preloaded = /<link[^>]+rel="preload"[^>]+href="([^"]*\.woff2)"/.exec(html)?.[1];
+    expect(preloaded, 'no font preload found').toBeTruthy();
+
+    const cssFile = readdirSync(join(dist!, 'assets')).find((a) => a.endsWith('.css'));
+    const css = readFileSync(join(dist!, 'assets', cssFile!), 'utf8');
+    const fontName = preloaded!.split('/').pop()!;
+    expect(css.includes(fontName), `css does not reference ${fontName}`).toBe(true);
+  });
 });
