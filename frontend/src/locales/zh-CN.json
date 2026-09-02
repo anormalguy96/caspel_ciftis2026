@@ -110,7 +110,10 @@
     "voiceTranscribing": "转写中…",
     "voiceDenied": "无法使用麦克风。请输入您的问题。",
     "voiceFailed": "无法转写。请重试或输入您的问题。",
-    "voiceReview": "发送前请检查文字。"
+    "voiceReview": "发送前请检查文字。",
+    "streamGenerating": "正在生成回答",
+    "streamInterrupted": "回答已中断。请重新提问。",
+    "thinking": "思考中"
   },
   "aiEntry": {
     "label": "CASPEL AI",

@@ -109,7 +109,10 @@ def strip_citation_markers(answer: str) -> str:
     # Tidy the punctuation the removal leaves behind: "( )", "[]", doubled
     # spaces, and a space before a full stop.
     cleaned = re.sub(r"[\[(]\s*[\])]", "", cleaned)
-    cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
+    # Full-width CJK punctuation is included. A Chinese answer that cited a
+    # source mid-sentence was left reading "解决方案 。", because the ASCII
+    # class alone does not contain 。，、！？：；.
+    cleaned = re.sub(r"\s+([,.;:!?。，、！？：；])", r"\1", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()

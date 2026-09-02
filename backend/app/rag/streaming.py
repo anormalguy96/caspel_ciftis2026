@@ -33,16 +33,42 @@ from typing import AsyncIterator, Iterable, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
-#: A complete inline citation marker, as the system prompt asks for.
-_MARKER = re.compile(r"\[SOURCE_\d+\]")
+#: One identifier, as tolerantly as citations.CITATION_PATTERN reads it.
+_ID = r"SOURCE[_\s-]?\d{1,3}"
 
-#: The longest prefix of a marker that is not yet a marker. "[SOURCE_" plus a
-#: few digits; 16 characters is comfortably beyond any real identifier and
-#: bounds how much text can ever be withheld.
-_MAX_HELD = 16
+#: A complete inline citation, in every form the model actually produces.
+#:
+#: The system prompt asks for "[SOURCE_1]", and a first end-to-end run through
+#: nginx showed the model also writing "[SOURCE_1, SOURCE_2]" -- several
+#: identifiers inside one bracket pair. A pattern that only matched the single
+#: form let that reach the visitor verbatim, which is exactly what this filter
+#: exists to prevent. Bare identifiers outside brackets are caught too, since
+#: the resolver accepts them.
+_MARKER = re.compile(
+    rf"\[\s*{_ID}(?:\s*[,;]\s*{_ID})*\s*\]|{_ID}",
+    re.IGNORECASE,
+)
 
-#: A tail that could still grow into a marker. Anything else can be released.
-_PARTIAL = re.compile(r"\[(?:S(?:O(?:U(?:R(?:C(?:E(?:_\d*)?)?)?)?)?)?)?$")
+#: Punctuation repair after a marker is removed, mirroring
+#: citations.strip_citation_markers so both delivery paths render alike.
+_EMPTY_BRACKETS = re.compile(r"[\[(]\s*[\])]")
+_SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([,.;:!?。，、！？：；])")
+_DOUBLE_SPACE = re.compile(r"[ \t]{2,}")
+_TRAILING_SPACES = re.compile(r"[ \t]+$")
+
+#: How much text may be withheld while a marker is still arriving. A grouped
+#: citation is longer than a single one, so the bound is generous enough for a
+#: realistic group and still small enough that the stream never visibly stalls.
+_MAX_HELD = 72
+
+#: A tail that could still grow into a marker. Either an open bracket whose
+#: contents so far are consistent with a citation group, or a partially typed
+#: bare identifier.
+_PARTIAL = re.compile(
+    rf"\[[^\]\[]{{0,{_MAX_HELD}}}$"
+    r"|(?:S|SO|SOU|SOUR|SOURC|SOURCE|SOURCE[_\s-]|SOURCE[_\s-]\d{1,2})$",
+    re.IGNORECASE,
+)
 
 
 class CitationStreamFilter:
@@ -77,12 +103,37 @@ class CitationStreamFilter:
             # A pathological run of '[' must not grow without bound.
             if len(hold) > _MAX_HELD:
                 self._pending = ""
-                return cleaned
+                return self._tidy(cleaned)
             self._pending = hold
-            return cleaned[: match.start()]
+            return self._tidy(cleaned[: match.start()])
 
         self._pending = ""
-        return cleaned
+        return self._tidy(cleaned)
+
+    def _tidy(self, text: str) -> str:
+        """Repair the punctuation a removed marker leaves behind.
+
+        The non-streaming path already does this, and an answer must not read
+        differently depending on how it was delivered -- "experience ." in one
+        arm and "experience." in the other is the same answer rendered two
+        ways.
+
+        A trailing run of spaces is withheld rather than emitted, because the
+        punctuation that decides whether it should survive may be in the next
+        chunk. It is only ever a space or two, so nothing visibly stalls.
+        """
+        if not text:
+            return ""
+
+        text = _EMPTY_BRACKETS.sub("", text)
+        text = _SPACE_BEFORE_PUNCT.sub(r"\1", text)
+        text = _DOUBLE_SPACE.sub(" ", text)
+
+        trailing = _TRAILING_SPACES.search(text)
+        if trailing:
+            self._pending = text[trailing.start():] + self._pending
+            text = text[: trailing.start()]
+        return text
 
     def flush(self) -> str:
         """Release anything still held once generation has finished."""

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
-import { ChatMessage } from '../types';
+import { ChatMessage, ChatSource } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
+import { useStreamingAnswer } from '../hooks/useStreamingAnswer';
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '../i18n';
 import { useExitTransition } from '../hooks/useExitTransition';
@@ -64,49 +65,88 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
     messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
   }, [messages, failure, isOpen]);
 
-  const ask = useCallback(async (query: string, echoQuestion: boolean) => {
-    setFailure(null);
-    setIsLoading(true);
-
-    if (echoQuestion) {
-      setMessages((prev) => [
-        ...prev,
-        { id: `user_${Date.now()}`, role: 'user', content: query, timestamp: new Date().toISOString() },
-      ]);
-      // Count the question without copying its text here: the message is already
-      // stored by /api/chat, and logging it twice spreads visitor-entered content
-      // across two systems for no benefit.
-      trackAnalyticsEvent('AI_QUESTION');
-    }
-
-    try {
-      const response = await sendChatMessage(getSessionId(), query, currentLocale());
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant_${Date.now()}`,
-          role: 'assistant',
-          content: response.answer,
-          sources: response.sources,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } catch (error) {
-      // A failed call is NOT an answer. Recording it as an assistant message
-      // would put a service outage into the transcript as though CASPEL AI had
-      // replied, and would count toward answered questions in the exhibition
-      // report. It is surfaced as an explicit, retryable failure instead.
-      const message =
-        error instanceof ChatRateLimitedError
-          ? t('ai.rateLimited')
-          : error instanceof ChatUnavailableError
-            ? t('ai.unavailable')
-            : t('ai.networkError');
-      setFailure({ question: query, message });
-    } finally {
-      setIsLoading(false);
-    }
+  /**
+   * The single place an assistant message enters the transcript.
+   *
+   * Both delivery paths funnel through here, so a streamed answer and a plain
+   * one cannot drift apart in shape, and exactly one entry is recorded per
+   * question however it was answered.
+   */
+  const commitAnswer = useCallback((content: string, sources: ChatSource[]) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        content,
+        sources,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    setIsLoading(false);
   }, []);
+
+  /** The original non-streaming path, unchanged in behaviour. */
+  const askPlain = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      try {
+        const response = await sendChatMessage(getSessionId(), query, currentLocale());
+        commitAnswer(response.answer, response.sources ?? []);
+      } catch (error) {
+        // A failed call is NOT an answer. Recording it as an assistant message
+        // would put an outage into the transcript as though CASPEL AI had
+        // replied, and would count toward answered questions.
+        const message =
+          error instanceof ChatRateLimitedError
+            ? t('ai.rateLimited')
+            : error instanceof ChatUnavailableError
+              ? t('ai.unavailable')
+              : t('ai.networkError');
+        setFailure({ question: query, message });
+        setIsLoading(false);
+      }
+    },
+    [commitAnswer, t]
+  );
+
+  const stream = useStreamingAnswer({
+    onComplete: (content, sources) => commitAnswer(content, sources),
+    onUnavailable: (query) => {
+      // The route never ran: nothing was generated and nothing recorded, so
+      // falling back cannot duplicate a generation or an analytics event.
+      void askPlain(query);
+    },
+    onInterrupted: (query) => {
+      // The provider WAS called. Retrying automatically would generate twice,
+      // so the visitor is told plainly and decides whether to ask again.
+      setFailure({ question: query, message: t('ai.streamInterrupted') });
+      setIsLoading(false);
+    },
+  });
+
+  const ask = useCallback(
+    async (query: string, echoQuestion: boolean) => {
+      setFailure(null);
+      setIsLoading(true);
+
+      if (echoQuestion) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `user_${Date.now()}`, role: 'user', content: query, timestamp: new Date().toISOString() },
+        ]);
+        // Counted once, here, whichever path answers it. The text is not
+        // copied: the message is already stored server-side, and logging it
+        // twice spreads visitor-entered content across two systems.
+        trackAnalyticsEvent('AI_QUESTION');
+      }
+
+      // Streaming first. A deployment with it switched off returns 404 and
+      // onUnavailable falls back, which the visitor never sees.
+      await stream.start(query, getSessionId(), currentLocale());
+    },
+    [stream, t]
+  );
 
   const handleSendMessage = useCallback(
     (text: string) => {
@@ -305,9 +345,33 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
           {isLoading && (
             <div className="chat__row chat__row--assistant">
               <span className="chat__speaker">{t('ai.title')}</span>
-              <div className="chat__message chat__message--assistant chat__message--loading">
-                <Dots />
+              <div
+                className="chat__message chat__message--assistant"
+                data-stream={stream.phase}
+                data-testid="streaming-answer"
+              >
+                {stream.text ? (
+                  <>
+                    {/* The same renderer the finished answer uses, so text does
+                        not reflow when the stream commits. */}
+                    <MarkdownRenderer content={stream.text} />
+                    {stream.phase === 'streaming' && (
+                      <span className="chat__cursor" aria-hidden="true" />
+                    )}
+                  </>
+                ) : (
+                  <span className="chat__message--loading">
+                    <Dots />
+                  </span>
+                )}
               </div>
+              {/*
+                Announced once per phase rather than per token: a live region
+                that updates on every delta makes a screen reader unusable.
+              */}
+              <span className="visually-hidden" role="status" aria-live="polite">
+                {stream.phase === 'streaming' ? t('ai.streamGenerating') : t('ai.thinking')}
+              </span>
             </div>
           )}
 

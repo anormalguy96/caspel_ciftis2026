@@ -21,10 +21,28 @@ def _drain(filt: CitationStreamFilter, chunks):
 # ==========================================================================
 
 def test_a_whole_marker_is_removed():
+    # The doubled space the removal leaves behind is collapsed, matching what
+    # citations.strip_citation_markers does on the non-streaming path. The same
+    # answer must not read differently depending on how it was delivered.
     filt = CitationStreamFilter()
     assert _drain(filt, ["CASPEL has 20 years [SOURCE_1] of experience."]) == (
-        "CASPEL has 20 years  of experience."
+        "CASPEL has 20 years of experience."
     )
+
+
+def test_punctuation_is_repaired_the_same_way_as_the_plain_path():
+    filt = CitationStreamFilter()
+    # A marker before a full stop must not leave " ." behind.
+    assert _drain(filt, ["CASPEL has 20 years of experience [SOURCE_1, SOURCE_2]."]) == (
+        "CASPEL has 20 years of experience."
+    )
+
+
+def test_punctuation_repair_works_across_a_chunk_boundary():
+    # The space is in one chunk and the full stop in the next, so the trailing
+    # space has to be withheld until the punctuation arrives.
+    filt = CitationStreamFilter()
+    assert _drain(filt, ["Experience [SOURCE_1] ", ". Next."]) == "Experience. Next."
 
 
 def test_marker_split_across_two_chunks_is_still_removed():
@@ -327,3 +345,72 @@ async def test_heartbeats_are_emitted_when_configured():
         )
     )
     assert any(f.startswith(":") for f in frames)
+
+
+# ==========================================================================
+# Grouped citations, found by an end-to-end run rather than by unit tests
+# ==========================================================================
+
+def test_a_grouped_marker_is_removed():
+    # The model writes this form in practice even though the prompt asks for
+    # single identifiers. A pattern matching only "[SOURCE_1]" let it through.
+    filt = CitationStreamFilter()
+    out = _drain(filt, ["CASPEL has 20 years of experience [SOURCE_1, SOURCE_2]."])
+    assert "SOURCE" not in out
+    assert "20 years of experience" in out
+
+
+def test_a_grouped_marker_split_across_chunks_is_removed():
+    filt = CitationStreamFilter()
+    out = _drain(filt, ["Answer [SOURCE_1, ", "SOURCE_2] continues."])
+    assert "SOURCE" not in out
+    assert "continues" in out
+
+
+def test_a_three_way_group_is_removed():
+    filt = CitationStreamFilter()
+    out = _drain(filt, ["Answer [SOURCE_1, SOURCE_2, SOURCE_3]."])
+    assert "SOURCE" not in out
+
+
+def test_a_semicolon_separated_group_is_removed():
+    filt = CitationStreamFilter()
+    assert "SOURCE" not in _drain(filt, ["Answer [SOURCE_1; SOURCE_2]."])
+
+
+def test_a_bare_identifier_is_removed():
+    filt = CitationStreamFilter()
+    assert "SOURCE" not in _drain(filt, ["As stated in SOURCE_3 the system covers HR."])
+
+
+def test_a_grouped_marker_split_character_by_character_is_removed():
+    filt = CitationStreamFilter()
+    assert "SOURCE" not in _drain(filt, list("Answer [SOURCE_1, SOURCE_2] end."))
+
+
+def test_grouped_markers_survive_in_raw_text_for_resolution():
+    filt = CitationStreamFilter()
+    _drain(filt, ["A [SOURCE_1, SOURCE_2] B"])
+    assert "SOURCE_1" in filt.raw_text and "SOURCE_2" in filt.raw_text
+
+
+def test_ordinary_bracketed_prose_is_not_swallowed():
+    filt = CitationStreamFilter()
+    out = _drain(filt, ["The system [as described] covers procurement."])
+    assert "as described" in out
+
+
+def test_the_hold_buffer_stays_bounded_on_an_open_bracket():
+    filt = CitationStreamFilter()
+    filt.feed("[" + "x" * 500)
+    assert len(filt._pending) <= 72
+
+
+def test_cjk_punctuation_does_not_keep_a_leading_space():
+    # A Chinese answer citing mid-sentence was left reading "解决方案 。" because
+    # the ASCII punctuation class does not contain full-width marks.
+    filt = CitationStreamFilter()
+    out = _drain(filt, ["提供综合交钥匙解决方案 [SOURCE_1]。"])
+    assert "SOURCE" not in out
+    assert " 。" not in out
+    assert out.endswith("解决方案。")

@@ -110,7 +110,10 @@
     "voiceTranscribing": "Transcribing…",
     "voiceDenied": "Microphone unavailable. Please type your question.",
     "voiceFailed": "Could not transcribe that. Please try again or type your question.",
-    "voiceReview": "Check the text before sending."
+    "voiceReview": "Check the text before sending.",
+    "streamGenerating": "Generating the answer",
+    "streamInterrupted": "The answer was interrupted. Please ask again.",
+    "thinking": "Thinking"
   },
   "aiEntry": {
     "label": "CASPEL AI",
