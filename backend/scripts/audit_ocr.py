@@ -1,13 +1,28 @@
 """Read-only OCR quality audit of the indexed corpus.
 
 Reads what is already in the database. It does not touch the protected PDFs,
-does not re-extract and does not write. The point is to establish whether
-extraction quality is a real constraint on either architecture, or merely
-untidy in ways no visitor question reaches.
+does not re-extract and does not write.
 
-A finding here is a *suspicion*, not a proven cause. The last section checks
-each flagged page against the evaluation corpus, because a mangled page that
-no question targets costs nothing.
+**This heuristic was rebuilt after the first one proved useless.** The original
+counted isolated one- and two-letter capitals as evidence of corruption. On the
+Azerbaijani ERP deck that fires constantly on ordinary text, so it flagged 39 of
+65 pages while retrieval scored Recall@4 100% on the very cases those pages
+answer. A signal that flags 60% of a corpus and predicts nothing is worse than
+no signal: it invites a fix to a problem that does not exist.
+
+The replacement looks only for things that cannot be legitimate text:
+
+  * Unicode replacement characters, the unambiguous mark of a decode failure.
+  * Control characters that no extractor should emit.
+  * Symbol density far above what a slide legitimately contains.
+  * A long run repeated verbatim, which is an extraction loop.
+  * A page whose own number is stranded at the start, i.e. footer bleed.
+  * Text with no word longer than three characters, which is what genuinely
+    shattered layout looks like.
+
+Azerbaijani letters, product names and abbreviations are explicitly *not*
+suspicious. Pages that are mostly graphics are reported separately from pages
+that are broken, because a photo slide with a two-word caption is intact.
 
     python -m scripts.audit_ocr
 """
@@ -21,63 +36,85 @@ from pathlib import Path
 
 sys.path.insert(0, "/app")
 
-#: Official spellings. A near-miss on one of these is what turns a good
-#: question into an ungroundable one.
-PRODUCT_TERMS = ["CASPEL", "IRISSEA", "LRIT", "CIFTIS", "ERP", "PMS"]
+#: Legitimate letters. Azerbaijani adds ə ğ ı ş ç ö ü to the Latin set, and Han
+#: characters appear in no source document but cost nothing to allow.
+_LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
 
-#: Runs of isolated capitals and stray glyphs are what broken slide extraction
-#: looks like: "Sil AHEAD OF TIME @CASPEL2 9".
-STRAY_GLYPHS = re.compile(r"[@©®™|~^]{1,}|(?<![A-Za-z])[A-Z]{1,2}(?![A-Za-z])")
-REPEATED_WS = re.compile(r"\s{3,}")
+#: Characters that are always a decode failure, never content.
+_REPLACEMENT = re.compile(r"[�﻿]")
+
+#: Control characters an extractor should never emit. Tab, newline and carriage
+#: return are legitimate layout.
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+#: Symbols that carry no meaning in a slide's prose.
+_NOISE_SYMBOL = re.compile(r"[@©®™|~^`\\<>{}]")
 
 
 def audit_page(content: str, page: int) -> dict:
     text = content or ""
     words = [w for w in re.split(r"\s+", text) if w]
-    letters = sum(c.isalpha() for c in text)
+    letters = len(_LETTER.findall(text))
 
-    stray = STRAY_GLYPHS.findall(text)
-    # A high ratio of one- and two-letter fragments is the signature of a slide
-    # whose layout was flattened into isolated characters.
-    fragments = [w for w in words if len(w) <= 2 and w.isalpha()]
-    frag_ratio = len(fragments) / len(words) if words else 0.0
+    replacement = len(_REPLACEMENT.findall(text))
+    control = len(_CONTROL.findall(text))
 
-    # Page-number contamination: the page's own number floating alone.
-    page_contamination = bool(re.search(rf"(?<!\d){page}(?!\d)", text[:40])) and page > 1
+    # Density relative to letters, not to raw length: a short page with two
+    # symbols is not noisier than a long page with twenty.
+    noise = len(_NOISE_SYMBOL.findall(text))
+    noise_density = noise / letters if letters else 0.0
 
-    # Duplicated text: the same 30-character run appearing twice.
-    duplicated = False
-    if len(text) > 120:
-        window = text[20:50]
-        duplicated = window.strip() != "" and text.count(window) > 1
+    # A verbatim repeat of a long run is an extraction loop, not prose.
+    repeated = False
+    if len(text) > 200:
+        probe = text[40:100]
+        repeated = bool(probe.strip()) and text.count(probe) > 1
 
-    broken_products = []
-    lowered = text.lower()
-    for term in PRODUCT_TERMS:
-        t = term.lower()
-        if t in lowered and term not in text:
-            # Present but not in its official casing.
-            broken_products.append(term)
+    # The page's own number stranded in the first few characters.
+    head = text[:24]
+    footer_bleed = bool(re.search(rf"(?<!\d){page}(?!\d)", head)) and page > 1
+
+    # Genuinely shattered layout: nothing survives as a real word.
+    longest_word = max((len(w) for w in words if _LETTER.match(w)), default=0)
+    shattered = bool(words) and longest_word <= 3
+
+    # Mostly-graphics is a property of the slide, not a defect.
+    graphics_only = letters < 60
+
+    defects = []
+    if replacement:
+        defects.append("replacement_characters")
+    if control:
+        defects.append("control_characters")
+    if noise_density > 0.08:
+        defects.append("symbol_density")
+    if repeated:
+        defects.append("repeated_run")
+    if footer_bleed:
+        defects.append("footer_bleed")
+    if shattered:
+        defects.append("shattered_words")
 
     return {
         "page": page,
         "chars": len(text),
         "words": len(words),
         "letters": letters,
-        "stray_glyphs": len(stray),
-        "fragment_ratio": round(frag_ratio, 3),
-        "page_number_contamination": page_contamination,
-        "duplicated_text": duplicated,
-        "broken_product_casing": broken_products,
-        "excessive_whitespace": len(REPEATED_WS.findall(text)),
-        # Under ~120 characters a slide carries a title and little else; there
-        # is not enough there to answer a question from.
-        "thin": len(text) < 120,
+        "replacement_characters": replacement,
+        "control_characters": control,
+        "noise_density": round(noise_density, 4),
+        "repeated_run": repeated,
+        "footer_bleed": footer_bleed,
+        "shattered_words": shattered,
+        "graphics_only": graphics_only,
+        "defects": defects,
+        "longest_word": longest_word,
     }
 
 
 async def main() -> int:
     from sqlalchemy import select  # noqa: PLC0415
+
     from app.core.database import AsyncSessionLocal  # noqa: PLC0415
     from app.models.entities import Document, DocumentChunk  # noqa: PLC0415
 
@@ -86,7 +123,6 @@ async def main() -> int:
             await db.execute(
                 select(
                     Document.product,
-                    Document.name,
                     DocumentChunk.page_number,
                     DocumentChunk.content,
                 )
@@ -101,56 +137,46 @@ async def main() -> int:
         f["product"] = row.product
         findings.append(f)
 
-    total = len(findings)
-    thin = [f for f in findings if f["thin"]]
-    fragmented = [f for f in findings if f["fragment_ratio"] > 0.25]
-    stray_heavy = [f for f in findings if f["stray_glyphs"] > 8]
-    duplicated = [f for f in findings if f["duplicated_text"]]
-    contaminated = [f for f in findings if f["page_number_contamination"]]
-    broken = [f for f in findings if f["broken_product_casing"]]
+    defective = [f for f in findings if f["defects"]]
+    graphics = [f for f in findings if f["graphics_only"] and not f["defects"]]
 
-    print(f"  pages audited: {total}")
+    print(f"  pages audited: {len(findings)}")
+    print(f"  pages with a real defect signal: {len(defective)}")
+    print(f"  pages that are mostly graphics (not a defect): {len(graphics)}")
     print()
-    print(f"  {'thin (<120 chars)':<34} {len(thin):>3}")
-    print(f"  {'high fragment ratio (>0.25)':<34} {len(fragmented):>3}")
-    print(f"  {'stray-glyph heavy (>8)':<34} {len(stray_heavy):>3}")
-    print(f"  {'duplicated text':<34} {len(duplicated):>3}")
-    print(f"  {'page-number contamination':<34} {len(contaminated):>3}")
-    print(f"  {'broken product casing':<34} {len(broken):>3}")
 
-    def show(label: str, items: list) -> None:
-        if not items:
-            return
-        print(f"\n  {label}:")
-        for f in items[:12]:
+    if defective:
+        print("  defects:")
+        for f in defective:
             print(
-                f"    {f['product']}/p{f['page']:<3} chars={f['chars']:<5} "
-                f"words={f['words']:<4} frag={f['fragment_ratio']:<5} "
-                f"stray={f['stray_glyphs']}"
+                f"    {f['product']}/p{f['page']:<3} {','.join(f['defects']):<40} "
+                f"letters={f['letters']:<5} noise={f['noise_density']}"
             )
+    else:
+        print("  no page shows a signal that cannot be legitimate text.")
 
-    show("thin pages", thin)
-    show("fragmented pages", fragmented)
-    show("stray-glyph heavy pages", stray_heavy)
+    if graphics:
+        print("\n  mostly graphics:")
+        for f in graphics:
+            print(f"    {f['product']}/p{f['page']:<3} letters={f['letters']}")
 
-    # Does any of this reach a question the evaluation actually asks?
+    # Does any real defect reach a question the evaluation actually asks?
     corpus_path = Path("/app/tests/rag_eval/corpus.json")
     if corpus_path.exists():
         cases = json.loads(corpus_path.read_text(encoding="utf-8"))["cases"]
-        suspect = {(f["product"], f["page"]) for f in thin + fragmented + stray_heavy}
-        affected = []
-        for case in cases:
-            if not case.get("answerable"):
-                continue
-            product = case.get("expect_product")
-            for page in case.get("expect_pages") or []:
-                if (product, page) in suspect:
-                    affected.append((case["id"], product, page))
-        print(f"\n  evaluation cases whose expected page is flagged: {len(affected)}")
+        suspect = {(f["product"], f["page"]) for f in defective}
+        affected = [
+            (c["id"], c.get("expect_product"), page)
+            for c in cases
+            if c.get("answerable")
+            for page in (c.get("expect_pages") or [])
+            if (c.get("expect_product"), page) in suspect
+        ]
+        print(f"\n  evaluation cases whose expected page has a real defect: {len(affected)}")
         for cid, product, page in affected[:15]:
             print(f"    {cid:<28} -> {product}/p{page}")
         if not affected:
-            print("    none -- no flagged page is the expected answer for any case")
+            print("    none -- no defective page is the expected answer for any case")
 
     Path("/tmp/ocr_audit.json").write_text(json.dumps(findings, indent=2))
     return 0

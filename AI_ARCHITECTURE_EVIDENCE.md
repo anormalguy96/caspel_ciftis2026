@@ -177,31 +177,81 @@ window backed by heartbeats.
 
 ---
 
-## 6. OCR audit
+## 6. OCR audit — corrected
 
 Read-only against the indexed corpus. The protected PDFs were not touched, and
 nothing was re-extracted or re-ingested.
 
-| Signal | Pages |
-|---|---|
-| Stray-glyph heavy | 39 of 65 |
-| High fragment ratio | 1 |
-| Thin (<120 chars) | 2 |
-| Duplicated text | 1 |
-| Page-number contamination | 4 |
+### The first heuristic was the defect
 
-44 evaluation case/page pairs touch a flagged page — **and retrieval scores
-Recall@4 100%, Recall@8 100% and MRR 0.9688 on exactly those cases.**
+The earlier pass reported 39 of 65 pages as "stray-glyph heavy" and I recorded
+that as a harness artifact. That was the right call but the wrong stopping
+point: a measurement that flags 60% of a corpus and predicts nothing should be
+replaced, not annotated. Left in place it invites someone to "fix" extraction
+that is not broken.
 
-The heuristic counts isolated one- and two-letter capitals, which fire
-constantly on the Azerbaijani ERP deck. Classification: **HARNESS ARTIFACT**.
+The signal counted isolated one- and two-letter capitals. The ERP deck is
+Azerbaijani, so that fires on ordinary text; it also fired on `ERP`, `PMS`,
+`CRM`, `LRIT` and `AZN`. It was measuring the corpus's language, not its
+quality.
 
-**OCR is NOT demonstrated to cause any retrieval or citation failure, and
-extraction was therefore not changed.**
+### The replacement
 
-Two genuinely thin pages exist — Corporate p23 (`PARTNERS 23`, 11 characters)
-and ERP p1 (a 61-character title slide). Neither is the expected answer page for
-any evaluation case.
+It now looks only for things that cannot be legitimate text: Unicode
+replacement characters, control characters, symbol density far above prose, a
+long run repeated verbatim, a stranded page number, and text in which no word
+survives longer than three characters. Azerbaijani letters, Chinese, product
+names and abbreviations are explicitly not suspicious. Pages that are mostly
+graphics are reported separately from pages that are broken, because a photo
+slide with a two-word caption is intact.
+
+Thirteen tests in `backend/tests/test_ocr_audit.py` hold both halves: real
+Azerbaijani, Chinese and product terminology must stay clean, and each genuine
+corruption signal must still fire.
+
+### Result
+
+| | First heuristic | Corrected heuristic |
+|---|---|---|
+| Pages flagged | 39 of 65 | **4 of 65** |
+| Evaluation cases touching a flagged page | 44 | **1** |
+| False positives on inspection | 39 | **0** |
+
+The four are real, and all four are the same artifact — the slide number bleeding
+into the extracted text:
+
+| Page | Extracted head | Letters |
+|---|---|---|
+| caspel p19 | `19\nProjects \nDisaster Recovery Center` | 1030 |
+| caspel p20 | `20\nProjects II/ III\nEstablishment of a Situation Center` | 1368 |
+| caspel p21 | `21\nProjects III / III\nObligations Management System` | 454 |
+| caspel p23 | `PARTNERS\n23` | 8 |
+
+Each was read by eye rather than trusted from the score.
+
+### Impact: none measured
+
+One evaluation case expects a flagged page. Retrieved directly:
+
+```
+query   : Has CASPEL delivered a disaster recovery centre?
+expects : caspel p19
+retrieved: (caspel, 19, 0.7670)  <- rank 1, highest score
+           (caspel,  6, 0.7483)
+           (caspel, 20, 0.7474)
+           (caspel, 21, 0.7255)
+```
+
+The expected page ranks first despite the artifact. A stray `19` contributes
+one meaningless token to a 1,030-letter page.
+
+**Extraction was not changed.** Not because the earlier evidence forbade it, but
+because the corrected evidence does not support it: the only real defect is
+cosmetic, does not affect retrieval, and fixing it would require re-ingesting a
+protected corpus to remove a token nothing reads.
+
+ERP p1 is a 45-letter title slide. It is classified as mostly-graphics, which is
+a property of the slide, not a defect.
 
 ---
 
