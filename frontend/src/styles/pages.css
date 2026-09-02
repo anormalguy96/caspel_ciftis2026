@@ -253,6 +253,33 @@
   transform: none;
 }
 
+/* Every label state occupies the same grid cell, so the control's width is the
+   width of its longest label and the confirmation swap cannot move it. Measured
+   before this: 54.3px of width change in English, 44.6px in Chinese, and the
+   left edge travelling up to 44px on a 360px phone -- under the finger that had
+   just pressed it. Reserving by layout rather than by a pixel value means a
+   retranslated label stays correct. */
+.viewer-bar__download-label {
+  display: grid;
+  place-items: center;
+}
+
+.viewer-bar__download-labeltext,
+.viewer-bar__download-reserve {
+  grid-area: 1 / 1;
+}
+
+.viewer-bar__download-reserve {
+  display: grid;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.viewer-bar__download-reserve > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
 .viewer-bar__download[data-state='failed'] {
   background-color: var(--color-surface-elevated);
   color: var(--color-text);
