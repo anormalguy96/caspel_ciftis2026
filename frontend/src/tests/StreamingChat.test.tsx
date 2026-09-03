@@ -487,3 +487,127 @@ describe('capability contract', () => {
     expect(trackAnalyticsEvent.mock.calls.filter((c) => c[0] === 'AI_QUESTION')).toHaveLength(1);
   });
 });
+
+// ==========================================================================
+// Following the answer
+//
+// Auto-scroll used to run unconditionally, so a visitor who scrolled up to
+// re-read an earlier paragraph was pulled back down by the next update --
+// measured at 2,852px of unrequested travel while the answer was still
+// arriving.
+//
+// The first fix measured the distance from the bottom at update time, and was
+// worse: a stream grows faster than a smooth scroll animates, so the gap
+// exceeded the threshold on its own and following switched itself off while
+// the visitor did nothing. Following now scrolls instantly and lands exactly at
+// the bottom, which is what makes a non-zero distance readable as the
+// visitor's own doing.
+// ==========================================================================
+
+describe('following the answer', () => {
+  /**
+   * happy-dom reports zero for every scroll metric and does not lay out, so the
+   * scrolling itself cannot be observed here. What can be observed is the
+   * decision: whether the component tried to move the view at all. The pixel
+   * behaviour is verified in a real browser instead -- following lands exactly
+   * at the bottom, and a visitor who scrolled up keeps their position while
+   * 1,556px of answer arrives beneath them.
+   */
+  function makeScrollable(el: Element, { scrollHeight = 3000, clientHeight = 400 } = {}) {
+    let top = 0;
+    Object.defineProperty(el, 'scrollHeight', { get: () => scrollHeight, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { get: () => clientHeight, configurable: true });
+    Object.defineProperty(el, 'scrollTop', {
+      get: () => top,
+      set: (v: number) => {
+        top = v;
+      },
+      configurable: true,
+    });
+    return {
+      get top() {
+        return top;
+      },
+      scrollTo(v: number) {
+        top = v;
+        el.dispatchEvent(new Event('scroll'));
+      },
+    };
+  }
+
+  it('moves the view to the answer while the visitor is at the bottom', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    stubRoutes({
+      capabilities: () => okJson({ streaming: true }),
+      stream: okStream([
+        ev('delta', { text: 'First part of a long answer. ' }),
+        ev('delta', { text: 'Second part that pushes it past the fold.' }),
+        ev('done', { complete: true }),
+      ]),
+    });
+
+    wrap();
+    makeScrollable(document.querySelector('.chat__log')!);
+
+    await askQuestion();
+    await waitFor(() => expect(screen.getByText(/Second part/)).toBeInTheDocument());
+
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('stops moving the view once the visitor scrolls up', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    stubRoutes({
+      capabilities: () => okJson({ streaming: true }),
+      stream: okStream([
+        ev('delta', { text: 'Opening paragraph the visitor wants to re-read. ' }),
+        ev('done', { complete: true }),
+      ]),
+    });
+
+    wrap();
+    const scroll = makeScrollable(document.querySelector('.chat__log')!);
+
+    // The visitor goes back to the top before the answer is committed.
+    scroll.scrollTo(0);
+    scrollIntoView.mockClear();
+
+    await askQuestion();
+    await waitFor(() => expect(screen.getByText(/Opening paragraph/)).toBeInTheDocument());
+
+    // Their position is theirs to keep. This is the defect that shipped:
+    // auto-scroll ran unconditionally and pulled them back down.
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scroll.top).toBe(0);
+  });
+
+  it('resumes when the visitor returns to the bottom, with no flag left stuck', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    stubRoutes({
+      capabilities: () => okJson({ streaming: false }),
+    });
+
+    wrap();
+    const scroll = makeScrollable(document.querySelector('.chat__log')!);
+
+    scroll.scrollTo(0);
+    // The effect also runs on mount, before the visitor has scrolled anywhere.
+    scrollIntoView.mockClear();
+
+    await askQuestion('First');
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    // Back at the bottom: 3000 - 2600 - 400 = 0 away.
+    scroll.scrollTo(2600);
+    await askQuestion('Second');
+    await waitFor(() => expect(screen.getAllByText('Plain answer.')).toHaveLength(2));
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+});

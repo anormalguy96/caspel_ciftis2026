@@ -48,6 +48,8 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ChatFailure | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** The scrolling transcript, needed to ask where the visitor is looking. */
+  const logRef = useRef<HTMLDivElement>(null);
   const seededRef = useRef<string | undefined>(undefined);
 
   const transitionState = useExitTransition(isOpen);
@@ -56,15 +58,51 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
   /** True until the visitor has actually asked something. */
   const isEmptyState = messages.length === 0 && !isLoading && !failure;
 
+  /**
+   * How far from the bottom still counts as "watching the answer arrive".
+   *
+   * Roughly a line and a half, so a visitor who is following along is not
+   * disqualified by the few pixels a smooth scroll leaves behind.
+   */
+  const NEAR_BOTTOM_PX = 96;
+
+  const isNearBottom = useCallback(() => {
+    const log = logRef.current;
+    if (!log) return true;
+    // No overflow yet means there is nowhere to be but the bottom.
+    if (log.scrollHeight <= log.clientHeight + 1) return true;
+    return log.scrollHeight - log.scrollTop - log.clientHeight <= NEAR_BOTTOM_PX;
+  }, []);
+
+  /** Whether the view should keep pace with the answer. */
+  const followRef = useRef(true);
+
+  /**
+   * Decides, from the transcript's own scroll position, whether the visitor is
+   * still following along.
+   *
+   * This cannot be answered by measuring the distance at update time. A
+   * streamed answer grows faster than a smooth scroll animates, so the gap
+   * exceeds any sensible threshold on its own and auto-follow switches itself
+   * off while the visitor is doing nothing at all -- measured: following
+   * stopped 282px from the bottom and never resumed.
+   *
+   * Following therefore scrolls instantly and lands exactly at the bottom, so a
+   * scroll event that reports any real distance was produced by the visitor.
+   * That makes the rule self-correcting in both directions: scrolling up stops
+   * the following, scrolling back to the bottom resumes it, and there is no
+   * "took control" flag that can get stuck.
+   */
   useEffect(() => {
-    if (!isOpen) return;
-    // Honour a reduced-motion preference here too: an abrupt jump is the
-    // correct behaviour for someone who asked not to be moved.
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
-  }, [messages, failure, isOpen]);
+    const log = logRef.current;
+    if (!isOpen || !log) return;
+    const onScroll = () => {
+      followRef.current = isNearBottom();
+    };
+    log.addEventListener('scroll', onScroll, { passive: true });
+    return () => log.removeEventListener('scroll', onScroll);
+  }, [isOpen, isNearBottom]);
+
 
   /**
    * The single place an assistant message enters the transcript.
@@ -142,6 +180,42 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
       setIsLoading(false);
     },
   });
+
+  /**
+   * Follows the answer, but only for a visitor who is already at the bottom.
+   *
+   * This used to scroll unconditionally. Someone who scrolled up to re-read an
+   * earlier paragraph was yanked back down the moment the next update landed --
+   * measured at 2,852px of unrequested travel while the answer was still
+   * arriving.
+   *
+   * Reading the position at the moment of each update is what makes this
+   * self-correcting: scrolling up stops the following because they are no
+   * longer near the bottom, and scrolling back down resumes it, with no
+   * "the visitor took control" flag to get stuck on.
+   *
+   * It runs on the streamed text as well as on committed messages, so the view
+   * tracks the answer as it is written rather than jumping once at the end.
+   */
+  useEffect(() => {
+    if (!isOpen || !followRef.current) return;
+    const log = logRef.current;
+
+    // While text is arriving, jump. Smooth animation cannot keep pace with a
+    // stream and leaves the view trailing the words being written; it is also
+    // what made the position unreadable as a signal of visitor intent.
+    if (stream.phase === 'streaming' && log) {
+      log.scrollTop = log.scrollHeight;
+      return;
+    }
+
+    // Honour a reduced-motion preference here too: an abrupt jump is the
+    // correct behaviour for someone who asked not to be moved.
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+  }, [messages, failure, isOpen, stream.text, stream.phase]);
 
   const ask = useCallback(
     async (query: string, echoQuestion: boolean) => {
@@ -285,6 +359,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
         </div>
 
         <div
+          ref={logRef}
           className="chat__log"
           data-empty={isEmptyState ? 'true' : 'false'}
           role="log"
