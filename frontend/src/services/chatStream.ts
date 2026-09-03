@@ -132,3 +132,58 @@ export async function streamChat(
     }
   }
 }
+
+/** What this deployment's chat surface actually offers. */
+export interface ChatCapabilities {
+  streaming: boolean;
+}
+
+/**
+ * Cached for the page's lifetime.
+ *
+ * The flag is server configuration, not per-visitor state, so asking more than
+ * once per load is pure waste. The in-flight promise is cached too, so a
+ * visitor who opens the modal and immediately sends a question makes one
+ * request rather than two.
+ */
+let capabilitiesPromise: Promise<ChatCapabilities> | null = null;
+
+/**
+ * Asks the server which delivery paths exist, before committing to one.
+ *
+ * Without this the client discovered streaming's availability by attempting it
+ * and reading the 404 -- and since streaming is off by default, that put a
+ * failed request in front of every visitor question on a default deployment.
+ *
+ * Any failure resolves to `streaming: false`. That is the safe direction: the
+ * plain endpoint is the one that has always worked, so an unreachable or older
+ * backend (one predating this route, which answers 404) degrades to exactly
+ * the behaviour that shipped before streaming existed, rather than to an
+ * error the visitor can see.
+ */
+export async function fetchChatCapabilities(signal?: AbortSignal): Promise<ChatCapabilities> {
+  if (!capabilitiesPromise) {
+    capabilitiesPromise = (async () => {
+      try {
+        const response = await fetch(apiUrl('chat/capabilities'), { signal });
+        if (!response.ok) return { streaming: false };
+        const body: unknown = await response.json();
+        // Trust the shape, not the sender: anything but a real boolean is
+        // treated as "no streaming" rather than coerced into one.
+        const streaming =
+          typeof body === 'object' && body !== null && 'streaming' in body
+            ? (body as { streaming: unknown }).streaming === true
+            : false;
+        return { streaming };
+      } catch {
+        return { streaming: false };
+      }
+    })();
+  }
+  return capabilitiesPromise;
+}
+
+/** Test seam. Never called by the application. */
+export function resetChatCapabilitiesCache(): void {
+  capabilitiesPromise = null;
+}

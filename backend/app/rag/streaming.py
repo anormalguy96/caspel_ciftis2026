@@ -44,14 +44,22 @@ _ID = r"SOURCE[_\s-]?\d{1,3}"
 #: form let that reach the visitor verbatim, which is exactly what this filter
 #: exists to prevent. Bare identifiers outside brackets are caught too, since
 #: the resolver accepts them.
+#: Full-width separators are included because a Chinese answer separates a list
+#: with 、 rather than a comma. Without them "[SOURCE_1、SOURCE_2]" does not match
+#: as a group, the identifiers go one at a time, and the visitor is left reading
+#: "[、]".
 _MARKER = re.compile(
-    rf"\[\s*{_ID}(?:\s*[,;]\s*{_ID})*\s*\]|{_ID}",
+    rf"\[\s*{_ID}(?:\s*[,;、，；]\s*{_ID})*\s*\]|{_ID}",
     re.IGNORECASE,
 )
 
 #: Punctuation repair after a marker is removed, mirroring
 #: citations.strip_citation_markers so both delivery paths render alike.
-_EMPTY_BRACKETS = re.compile(r"[\[(]\s*[\])]")
+#: Brackets left holding nothing but separators. _MARKER already removes a whole
+#: bracketed group, so this is the belt to that braces: a form it cannot match
+#: wholesale, such as "[SOURCE_1 and SOURCE_2]", still loses its identifiers and
+#: must not leave a stranded "[ and ]" behind.
+_EMPTY_BRACKETS = re.compile(r"[\[(][\s,;、，；]*[\])]")
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([,.;:!?。，、！？：；])")
 _DOUBLE_SPACE = re.compile(r"[ \t]{2,}")
 _TRAILING_SPACES = re.compile(r"[ \t]+$")

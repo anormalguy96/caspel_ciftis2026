@@ -26,6 +26,7 @@ from app.rag.transcription import (
 )
 from app.schemas.schemas import (
     ChatRequest,
+    ChatCapabilitiesResponse,
     ChatResponse,
     TranscriptionResponse,
     EventCreate,
@@ -448,6 +449,29 @@ async def transcribe_endpoint(
         del raw
 
     return TranscriptionResponse(text=result.text)
+
+
+@router.get("/chat/capabilities", response_model=ChatCapabilitiesResponse)
+async def chat_capabilities() -> ChatCapabilitiesResponse:
+    """Tell the browser which delivery paths this deployment actually offers.
+
+    The client cannot know whether streaming is switched on, and it used to find
+    out the expensive way: attempt POST /api/chat/stream, read the 404, then ask
+    again on /api/chat. Streaming is off by default, so on a
+    default-configured deployment that was a wasted request in front of every
+    single visitor question.
+
+    Deliberately not folded into /api/health, which reports liveness and
+    nothing else so that a public probe cannot inventory the deployment. This
+    returns one boolean that is already observable from a single request, and no
+    environment value is echoed.
+
+    Read-only, no database, no provider call, so it costs nothing to ask. It is
+    a hint and not a guarantee: the flag can change between this call and the
+    question -- a rolling deploy, for instance -- so the streaming route still
+    answers 404 when disabled and the client still falls back.
+    """
+    return ChatCapabilitiesResponse(streaming=bool(settings.AI_STREAMING_ENABLED))
 
 
 @router.post("/chat/stream")

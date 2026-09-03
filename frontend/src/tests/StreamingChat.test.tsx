@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 
 import { CaspelAIModal } from '../components/CaspelAIModal';
+import { resetChatCapabilitiesCache } from '../services/chatStream';
 
 const trackAnalyticsEvent = vi.hoisted(() => vi.fn());
 vi.mock('../services/analytics', () => ({
@@ -34,11 +35,23 @@ const ev = (name: string, data: unknown) => `event: ${name}\ndata: ${JSON.string
 interface Routes {
   stream?: () => Response;
   plain?: () => Response;
+  capabilities?: () => Response;
 }
 
-function stubRoutes({ stream, plain }: Routes) {
+const okJson = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+function stubRoutes({ stream, plain, capabilities }: Routes) {
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    // Default: streaming advertised, so the streaming tests below exercise the
+    // streaming path. A deployment's real default is the opposite.
+    if (url.includes('/chat/capabilities')) {
+      return capabilities ? capabilities() : okJson({ streaming: true });
+    }
     if (url.includes('/chat/stream')) {
       return stream ? stream() : new Response('', { status: 404 });
     }
@@ -78,6 +91,9 @@ const wrap = () =>
 beforeEach(() => {
   trackAnalyticsEvent.mockClear();
   document.body.style.overflow = '';
+  // The capability answer is cached for the page's lifetime, which is correct
+  // in the product and would leak between tests here.
+  resetChatCapabilitiesCache();
 });
 
 afterEach(() => {
@@ -235,10 +251,12 @@ describe('fallback and failure', () => {
     await askQuestion();
 
     await waitFor(() => expect(screen.getByTestId('chat-failure')).toBeInTheDocument());
-    // Generation already happened; a silent retry would run it twice.
+    // Generation already happened; a silent retry would run it twice. The
+    // capability probe is not a generation and is excluded by name rather than
+    // by a loose "/chat" match.
     const plainCalls = mock.mock.calls
       .map((c) => String(c[0]))
-      .filter((u) => u.includes('/chat') && !u.includes('stream'));
+      .filter((u) => /\/chat(\?|$)/.test(u) || u.endsWith('/chat'));
     expect(plainCalls).toHaveLength(0);
   });
 
@@ -315,6 +333,13 @@ describe('lifecycle', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        // Streaming has to be advertised for the client to attempt it.
+        if (String(input).includes('/chat/capabilities')) {
+          return new Response(JSON.stringify({ streaming: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
         if (String(input).includes('/chat/stream')) {
           signal = init?.signal ?? undefined;
           // Never completes: the abort is what ends it.
@@ -355,5 +380,110 @@ describe('lifecycle', () => {
 
     console.error = originalError;
     expect(errors.filter((e) => /unmounted/i.test(e))).toHaveLength(0);
+  });
+});
+
+// ==========================================================================
+// Capability contract
+//
+// The client asks the server which delivery paths exist instead of discovering
+// it by attempting the streaming route and reading a 404. Streaming is off by
+// default, so that discovery cost a failed request in front of every visitor
+// question on a default deployment.
+// ==========================================================================
+
+describe('capability contract', () => {
+  it('makes no streaming request at all when the server says streaming is off', async () => {
+    const mock = stubRoutes({ capabilities: () => okJson({ streaming: false }) });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+
+    const urls = mock.mock.calls.map((c) => String(c[0]));
+    // The whole point: no wasted round trip.
+    expect(urls.filter((u) => u.includes('/chat/stream'))).toHaveLength(0);
+    expect(urls.some((u) => u.includes('/chat/capabilities'))).toBe(true);
+  });
+
+  it('streams when the server says streaming is on', async () => {
+    stubRoutes({
+      capabilities: () => okJson({ streaming: true }),
+      stream: okStream([
+        ev('delta', { text: 'Streamed because the server said so.' }),
+        ev('done', { complete: true }),
+      ]),
+    });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Streamed because the server said so\./)).toBeInTheDocument()
+    );
+  });
+
+  it('asks for capabilities once per load, not once per question', async () => {
+    const mock = stubRoutes({ capabilities: () => okJson({ streaming: false }) });
+
+    wrap();
+    await askQuestion('First question');
+    await waitFor(() => expect(screen.getAllByText('Plain answer.').length).toBe(1));
+    await askQuestion('Second question');
+    await waitFor(() => expect(screen.getAllByText('Plain answer.').length).toBe(2));
+
+    const probes = mock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((u) => u.includes('/chat/capabilities'));
+    // Server configuration, not per-visitor state.
+    expect(probes).toHaveLength(1);
+  });
+
+  it('falls back to the plain endpoint when the capability probe fails', async () => {
+    // An older backend has no such route. Degrading to the endpoint that has
+    // always worked is the safe direction.
+    stubRoutes({ capabilities: () => new Response('', { status: 404 }) });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+  });
+
+  it('treats a malformed capability payload as no streaming', async () => {
+    stubRoutes({ capabilities: () => okJson({ streaming: 'yes please' }) });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+  });
+
+  it('still counts the question exactly once on the capability path', async () => {
+    stubRoutes({ capabilities: () => okJson({ streaming: false }) });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+    expect(trackAnalyticsEvent.mock.calls.filter((c) => c[0] === 'AI_QUESTION')).toHaveLength(1);
+  });
+
+  it('keeps the 404 safety net when the flag changes under a rolling deploy', async () => {
+    // The server advertised streaming, then the route stopped answering. The
+    // capability hint is not a guarantee, so the fallback must still be there.
+    const mock = stubRoutes({
+      capabilities: () => okJson({ streaming: true }),
+      stream: () => new Response('', { status: 404 }),
+    });
+
+    wrap();
+    await askQuestion();
+
+    await waitFor(() => expect(screen.getByText('Plain answer.')).toBeInTheDocument());
+    const urls = mock.mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes('/chat/stream'))).toBe(true);
+    expect(trackAnalyticsEvent.mock.calls.filter((c) => c[0] === 'AI_QUESTION')).toHaveLength(1);
   });
 });

@@ -4,6 +4,7 @@ import { ChatMessage, ChatSource } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
 import { useStreamingAnswer } from '../hooks/useStreamingAnswer';
+import { fetchChatCapabilities } from '../services/chatStream';
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '../i18n';
 import { useExitTransition } from '../hooks/useExitTransition';
@@ -110,6 +111,23 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
     [commitAnswer, t]
   );
 
+  /**
+   * Warms the capability answer as soon as the modal opens.
+   *
+   * The result is cached for the page's lifetime, so this is a head start
+   * rather than the lookup itself: `ask` awaits the same promise. Asking here
+   * means that by the time a visitor has finished typing, the answer is already
+   * in hand and awaiting it costs nothing.
+   *
+   * Deliberately not aborted on close. The reply is one boolean of server
+   * configuration and it is wanted for the next open too; cancelling it would
+   * only guarantee the work is repeated.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+    void fetchChatCapabilities();
+  }, [isOpen]);
+
   const stream = useStreamingAnswer({
     onComplete: (content, sources) => commitAnswer(content, sources),
     onUnavailable: (query) => {
@@ -141,11 +159,30 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
         trackAnalyticsEvent('AI_QUESTION');
       }
 
-      // Streaming first. A deployment with it switched off returns 404 and
-      // onUnavailable falls back, which the visitor never sees.
+      // Ask the server which delivery paths exist rather than discovering it by
+      // attempting the streaming route and reading its 404. Streaming is off by
+      // default, so that discovery put a failed request in front of every
+      // visitor question on a default deployment.
+      //
+      // Awaited rather than read from a ref that an effect fills in: a question
+      // sent in the same tick as the modal opening would otherwise race the
+      // probe and silently take the plain path even where streaming is on. The
+      // answer is cached and already in flight from the effect above, so this
+      // resolves immediately in practice and correctly in every case. A probe
+      // that fails resolves to `false`, which is the endpoint that has always
+      // worked.
+      const { streaming } = await fetchChatCapabilities();
+      if (!streaming) {
+        await askPlain(query);
+        return;
+      }
+
+      // The streaming route still answers 404 when disabled and onUnavailable
+      // still falls back, so a flag that changes underneath a rolling deploy
+      // stays safe. This removed a wasted request, not the safety net.
       await stream.start(query, getSessionId(), currentLocale());
     },
-    [stream, t]
+    [stream, askPlain, t]
   );
 
   const handleSendMessage = useCallback(

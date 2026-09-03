@@ -47,6 +47,25 @@ class ChatRequest(BaseModel):
     ui_locale: Optional[Literal["en", "zh-CN"]] = None
 
 
+class ChatCapabilitiesResponse(BaseModel):
+    """What the chat surface can do on *this* deployment.
+
+    The browser has to choose a delivery path before it sends a question, and
+    the only honest source for that is the server. Without this the client had
+    to guess, and it guessed by attempting the streaming route and treating a
+    404 as the answer -- which meant every visitor question on a
+    default-configured deployment paid for a failed request first.
+
+    Exactly one boolean is disclosed, and it is not a secret: whether streaming
+    answers are available is already observable by anyone who sends one
+    request. Nothing about the environment, the models, the corpus or the
+    database appears here. See HealthResponse for the same reasoning applied to
+    liveness.
+    """
+
+    streaming: bool
+
+
 class ChatSource(BaseModel):
     """One citation, entirely server-owned.
 
