@@ -87,6 +87,99 @@ function fontPreloadPlugin(basePath: string): Plugin {
   };
 }
 
+/**
+ * Starts a route's own code downloading at the same time as the main bundle.
+ *
+ * Code splitting keeps the landing page small, and it costs the split routes a
+ * serial round trip: the browser cannot know a route chunk exists until the
+ * main bundle has been fetched, parsed and executed far enough to reach the
+ * dynamic import. Traced on the ERP viewer at mobile throttling (150ms RTT,
+ * 1638kbps, CPU x4):
+ *
+ *   0 -  990ms  document
+ *   1043 - 1806ms  index + vendor + css + font
+ *   1962 - 2724ms  ProductPage chunk, pdf chunk        <- idle until 1962ms
+ *   ~3072ms        viewer bar paints, and is the LCP element
+ *
+ * The 156ms gap between the main bundle landing and the route chunk starting is
+ * parse-and-execute; the chunk itself then needs its own round trip on a 150ms
+ * link. Declaring it in the document removes that wait, because the browser can
+ * fetch it alongside the bundle that will ask for it.
+ *
+ * Only the route being visited is preloaded. A blanket set of modulepreload
+ * links in index.html would make the landing page pay for the viewer and the
+ * display wall, which is the regression code splitting exists to prevent -- so
+ * the choice is made in the document from `location.pathname`, and a visitor on
+ * `/` downloads nothing extra.
+ *
+ * The chunk names carry content hashes, so the map is written from the bundle at
+ * build time. A renamed page emits no entry rather than a stale one, and the
+ * base path comes from the same validated value as every other URL, so Mode A
+ * and Mode B are both correct.
+ */
+function routeChunkPreloadPlugin(basePath: string): Plugin {
+  // Matched against the emitted file names, which Rollup derives from the
+  // source module, and against the path a visitor is on.
+  const ROUTES: ReadonlyArray<{ test: string; chunk: RegExp }> = [
+    { test: '/product/', chunk: /(^|\/)ProductPage-[^/]+\.js$/ },
+    { test: '/display', chunk: /(^|\/)DisplayPage-[^/]+\.js$/ },
+  ];
+
+  return {
+    name: 'caspel-route-chunk-preload',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const bundle = ctx.bundle;
+        if (!bundle) return html;
+
+        /** A chunk plus everything it statically imports, transitively. */
+        const withDependencies = (entry: string): string[] => {
+          const seen = new Set<string>();
+          const queue = [entry];
+          while (queue.length) {
+            const file = queue.shift() as string;
+            if (seen.has(file)) continue;
+            seen.add(file);
+            const chunk = bundle[file];
+            if (chunk && chunk.type === 'chunk') {
+              for (const next of chunk.imports) queue.push(next);
+            }
+          }
+          return Array.from(seen);
+        };
+
+        const map: Record<string, string[]> = {};
+        for (const route of ROUTES) {
+          const entry = Object.keys(bundle).find((file) => route.chunk.test(file));
+          if (!entry) continue;
+          const files = withDependencies(entry)
+            // The entry bundle and its vendor chunk are already <script> tags in
+            // this document. A second declaration of them is deduplicated by the
+            // browser but says nothing, so it is left out.
+            .filter((file) => !html.includes(file))
+            .map((file) => `${basePath}${file}`);
+          if (files.length) map[route.test] = files;
+        }
+        if (!Object.keys(map).length) return html;
+
+        // Inlined rather than imported: a preload hint that needs its own
+        // request to arrive has already lost the time it exists to save.
+        const script = `(function(){var m=${JSON.stringify(map)},p=location.pathname;` +
+          `for(var k in m){if(p.indexOf(k)===-1)continue;` +
+          `for(var i=0;i<m[k].length;i++){var l=document.createElement('link');` +
+          `l.rel='modulepreload';l.href=m[k][i];document.head.appendChild(l);}break;}})();`;
+
+        return {
+          html,
+          tags: [{ tag: 'script', children: script, injectTo: 'head' }],
+        };
+      },
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
@@ -95,7 +188,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: basePath,
-    plugins: [react(), publicConfigPlugin(basePath, publicUrl), fontPreloadPlugin(basePath)],
+    plugins: [
+      react(),
+      publicConfigPlugin(basePath, publicUrl),
+      fontPreloadPlugin(basePath),
+      routeChunkPreloadPlugin(basePath),
+    ],
     define: {
       // Mirrors the validated value into the bundle so paths.ts can expose it
       // without re-deriving anything at runtime.

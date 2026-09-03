@@ -102,10 +102,25 @@ describeIfBuilt('initial bundle budget', () => {
 
   it('keeps the heavy features out of the initial path', () => {
     const html = readFileSync(join(dist!, 'index.html'), 'utf8');
-    // Each of these is a real chunk in the build; none may be referenced by
-    // index.html, because a visitor reading the product list needs none of them.
+
+    // The question is what the document tells the browser to *fetch*, so the
+    // resource-loading elements are what get checked -- not the whole file.
+    //
+    // This used to search the raw HTML for each chunk name. That was the same
+    // question while index.html contained nothing but tags, and stopped being
+    // so once the route-preload map put chunk names in the document as inert
+    // data. The map costs a landing visitor nothing: it is matched against
+    // location.pathname, and "/" matches no key, which the route-preload suite
+    // below asserts directly.
+    const loading = [...html.matchAll(/<(?:script|link)\b[^>]*>/g)]
+      .map((m) => m[0])
+      .filter((tag) => /\b(?:src|href)=/.test(tag))
+      .join('\n');
+
+    // Each of these is a real chunk in the build; a visitor reading the product
+    // list needs none of them, so none may be fetched before they act.
     for (const feature of ['pdf-', 'pdf.worker', 'CaspelAIModal', 'DisplayPage', 'qr-', '.mp4']) {
-      expect(html, `${feature} must not be in the initial path`).not.toContain(feature);
+      expect(loading, `${feature} must not be in the initial path`).not.toContain(feature);
     }
   });
 
@@ -179,5 +194,68 @@ describeIfBuilt('initial bundle budget', () => {
     const css = readFileSync(join(dist!, 'assets', cssFile!), 'utf8');
     const fontName = preloaded!.split('/').pop()!;
     expect(css.includes(fontName), `css does not reference ${fontName}`).toBe(true);
+  });
+
+  /**
+   * Route chunks are declared in the document so they download alongside the
+   * bundle that will ask for them.
+   *
+   * Code splitting costs a split route a serial round trip: the browser cannot
+   * know a route chunk exists until the main bundle has been fetched, parsed and
+   * executed as far as the dynamic import. Traced on the ERP viewer at mobile
+   * throttling, the route chunks sat idle until 1,962ms and started at 646ms
+   * once declared -- worth 0.19s of LCP on that route.
+   *
+   * The risk this guards is the obvious one: preloading everything from every
+   * page would make the landing page pay for the viewer and the display wall,
+   * which is the regression code splitting exists to prevent.
+   */
+  describe('route chunk preload', () => {
+    const readMap = (): Record<string, string[]> => {
+      const html = readFileSync(join(dist!, 'index.html'), 'utf8');
+      const match = /var m=(\{.*?\}),p=location\.pathname/.exec(html);
+      expect(match, 'no route preload map found in index.html').toBeTruthy();
+      return JSON.parse(match![1]) as Record<string, string[]>;
+    };
+
+    it('declares the viewer and display route chunks', () => {
+      const map = readMap();
+      expect(Object.keys(map).sort()).toEqual(['/display', '/product/']);
+      expect(map['/product/'].some((f) => f.includes('ProductPage'))).toBe(true);
+      expect(map['/display'].some((f) => f.includes('DisplayPage'))).toBe(true);
+    });
+
+    it('preloads the viewer route with everything it needs to execute', () => {
+      // pdf.js is a static dependency of the viewer: ProductPage cannot run
+      // until it has arrived, so leaving it out would only move the wait.
+      const files = readMap()['/product/'].join(' ');
+      expect(files).toMatch(/pdf-/);
+    });
+
+    it('points every preloaded file at something the build emitted', () => {
+      for (const [route, files] of Object.entries(readMap())) {
+        for (const href of files) {
+          const rel = href.replace(/^\/+/, '').replace(/^ciftis\//, '');
+          expect(existsSync(join(dist!, rel)), `${route} -> missing ${href}`).toBe(true);
+        }
+      }
+    });
+
+    it('gives the landing page nothing extra to download', () => {
+      // The map is keyed by path fragment and matched with indexOf, so this is
+      // the same test the browser performs.
+      const map = readMap();
+      const matched = Object.keys(map).filter((key) => '/'.indexOf(key) !== -1);
+      expect(matched).toEqual([]);
+    });
+
+    it('matches the same routes under the corporate subpath', () => {
+      // Mode B serves the app at /ciftis/, so a key that only matched a leading
+      // slash would silently do nothing in one of the two deployment modes.
+      const keys = Object.keys(readMap());
+      for (const path of ['/ciftis/product/erp', '/product/erp']) {
+        expect(keys.some((k) => path.indexOf(k) !== -1), `no key matches ${path}`).toBe(true);
+      }
+    });
   });
 });
