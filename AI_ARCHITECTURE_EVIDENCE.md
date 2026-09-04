@@ -30,6 +30,8 @@ and did not survive contact with primary documentation or measurement.
 | Viewer LCP measures time to PDF metadata | **Wrong** | LCP is the viewer bar at ~2.8 s; metadata arrives at ~24 s. LCP was gated on route-chunk discovery, which was fixable — so this reported an unfixable cause for a fixable problem (§7). |
 | Streaming is a delivered visitor feature | **Was not** | It was implemented and off by default, and the client discovered that by spending a failed request per question. Now server-advertised, with the enabling contract documented (§10). |
 | The non-streaming path renders citations cleanly | **Wrong** | Grouped markers left "[, ]" in visitor-facing text on the default path, three times in one answer (§10). |
+| A fast first slide is impossible without changing the PDF | **Wrong** | It is impossible *from the PDF*. A 45-62 KB WebP of the same approved page lands in ~2.3 s throttled and 0.4 s unthrottled (§14). |
+| Lighthouse LCP is usable on the viewer routes | **Wrong** | Its unthrottled trace observes one 24,434,337-byte deck response and models it at 1638 kbps, putting LCP and TTI at ~119 s. Real browser-reported LCP is used instead (§14). |
 | The viewer downloads the whole PDF before metadata | **Wrong** | pdf.js already uses ranges: 16 of 17 requests are 206, and 2.0 MB of 5.5 MB is transferred before first paint. Metadata lands at 3.7–5.4 s (§12). |
 | First-page time is dominated by file size | **Wrong** | It was dominated by neighbouring pages competing for bandwidth. Fixing that took Corporate from 40.1 s to 18.2 s with no change to the file (§12). |
 | The five protected assets include a "logo" at fa66a874… | **Misidentified** | The approved artifact is `caspel-icon.svg` (`72702e76…`, unchanged). `fa66a874…` is `caspel-logo-horizontal.svg`. A reporting error, not an asset change (§13). |
@@ -756,14 +758,18 @@ available throughout, which is the reason it stays the default and the rollback.
 |---|---|---|
 | `/product/caspel` LCP | **2.73 s** | ≤ 2.5 s |
 | `/product/erp` LCP | **2.73 s** | ≤ 2.5 s |
-| `/product/caspel` first visible slide | **18.2 s** | ≤ 5 s |
-| `/product/erp` first visible slide | **16.8 s** | ≤ 5 s |
+| `/product/caspel` interactive PDF page | **18.4 s** | ≤ 5 s |
+| `/product/erp` interactive PDF page | **16.5 s** | ≤ 5 s |
 
 LCP improved across the pass (2.92 → 2.73 and 2.91 → 2.73) and both remain over.
 No element was moved or hidden to change which one LCP selects.
 
-First-slide time improved substantially — Corporate 40.1 s → 18.2 s, ERP
-19.2 s → 16.8 s — and remains far over its target. **The reason is arithmetic,
+**A visitor now sees the deck’s real first slide in about 2.3–2.5 s** (§14),
+so the visitor-facing gate is met. What remains over target is the
+*interactive* PDF page, which is a different thing and is reported as one.
+
+Time to that interactive page improved across this programme — Corporate
+40.1 s → 18.4 s, ERP 19.2 s → 16.5 s — and remains far over five seconds. **The reason is arithmetic,
 not implementation:** the first slide's own bytes are 1.5–1.7 MB, a 7.4–8.3 s
 transfer floor at 1,638 kbps before any request is made (§12). Every delivery
 experiment that could have avoided that was tested and failed. The smallest
@@ -800,10 +806,14 @@ These need a person, a device, or an environment this work did not have.
 Every functionality, correctness, accessibility, infrastructure and integrity
 gate passes. Four performance gates do not, and they are named above.
 
-**The performance work is not complete.** A visitor on the documented
-throttled-mobile profile still waits about 17–18 seconds for a slide. That is
-better than the 25–40 seconds this pass started from, and it is not acceptable
-as a finished result.
+**The visitor-facing performance gate is met.** The deck’s real first slide is
+on screen in about 2.3–2.5 s on the documented throttled profile, and in
+0.4 s unthrottled.
+
+**The interactive document is still slow.** Scrolling, zooming and text
+selection become available at 16–18 s on that profile, because page one’s own
+bytes are 1.5–1.7 MB. That is reported as a miss, not hidden behind the
+preview.
 
 **This is not production-approved.** The human gates in NOT VERIFIED —
 Simplified Chinese review, assistive-technology testing, and a decision on the
@@ -1016,3 +1026,151 @@ entries. `cloudflared.exe` is ignored, which an earlier note said it was not —
 the entries were added in `b1d2afe`.
 
 Nothing here was restored, removed, staged or re-ignored.
+
+---
+
+## 14. First-slide delivery
+
+The previous pass established that no PDF-delivery tuning could put a slide on
+screen quickly, because page one's own bytes exceed the budget. This is the
+architecture change that follows from that evidence.
+
+### The result
+
+| | Corporate | ERP |
+|---|---|---|
+| **Authentic first slide painted** | **2,466 ms** | **2,304 ms** |
+| Real LCP (browser-reported) | **2,440 ms** | **2,244 ms** |
+| LCP element | `IMG` — the slide | `IMG` — the slide |
+| Real CLS | **0.016** | **0.016** |
+| Unthrottled first slide | — | **404 ms** |
+| Interactive PDF page | 18,413 ms | 16,530 ms |
+| Preview bytes | 62,090 | 45,280 |
+
+Three cold-cache trials each, fresh browser per trial, 150 ms RTT / 1,638 kbps /
+CPU ×4. **The primary target — an authentic first slide within 2.5 s — is met on
+both decks.** Corporate varies across runs (2,130 / 2,466 / 2,923 ms medians on
+three separate sets), so it sits close to the line rather than comfortably past
+it.
+
+Interactive PDF readiness is reported separately and deliberately: ERP improved
+slightly (16,840 → 16,530 ms) and Corporate moved 1.2% the wrong way
+(18,190 → 18,413 ms), inside the 10% allowance. **A visible slide is not an
+interactive document, and the preview must never be read as having made PDF.js
+faster.**
+
+### Existing infrastructure, and why a second pipeline was needed
+
+The citation thumbnails from PR #3 render pages with pdf.js at runtime, from the
+same `/stream` endpoint, sharing one document per slug. That is the right design
+for citations, and it cannot help here: it needs exactly the bytes that take 7-8
+seconds to arrive. It was left untouched.
+
+| | Existing thumbnails | First-slide preview |
+|---|---|---|
+| Generation | runtime, pdf.js | build-time, committed |
+| Source | `/api/presentations/{slug}/stream` | approved PDF, hash-verified |
+| Output | canvas | WebP, 1080×608 |
+| Cost before first paint | the page's own MBs | 45-62 KB |
+
+### Provenance
+
+`backend/scripts/build_slide_previews.py` renders page one and refuses to run
+against a source whose SHA256 does not match the digest in
+`app.core.presentations` — the same digest the API refuses to serve without.
+Verified by tampering with a copy: the run fails with a hash mismatch, writes no
+image for that slug, and exits 1. The input is opened read-only; the approved
+PDFs were byte-identical before and after.
+
+| Slug | Source | Source SHA256 | Page | Output SHA256 | Size |
+|---|---|---|---|---|---|
+| caspel | `CASPEL_Corporate_Presentation.pdf` | `051796d6…1f03` | 1 | `ebe278d0…e9e4` | 62,090 B |
+| erp | `CASPEL_ERP_Presentation.pdf` | `e7033d04…aab7` | 1 | `e96ea6ee…cb704` | 45,280 B |
+
+Both 1080×608. `--check` re-renders and compares, and reproduces the committed
+bytes exactly. PMS and IRISSEA have no approved deck, so they get no preview;
+adding one later needs only their real digest in the registry.
+
+### Format choice
+
+Rendered at 1080 px and compared objectively, then inspected at 1:1 on both
+slides — a similarity score does not prove text is readable.
+
+| | Corporate | ERP | similarity |
+|---|---|---|---|
+| JPEG q80 | 111,677 B | 87,437 B | 99.37 / 99.45% |
+| JPEG q86 | 136,165 B | 107,258 B | 99.49 / 99.54% |
+| **WebP q80** | **64,356 B** | **47,054 B** | **99.49 / 99.49%** |
+| WebP q86 | 80,160 B | 58,060 B | 99.59 / 99.56% |
+
+WebP q80 beats JPEG q86 on fidelity at roughly half the size. Visual inspection
+found no loss in small text, logo edges, icon strokes or the dark gradients
+where banding shows first. No EXIF, no alpha, exact source aspect ratio.
+
+A browser without WebP support loads no preview and gets exactly the behaviour
+that shipped before, so no second format is committed.
+
+### Scheduling — measured, not assumed
+
+| Variant | ERP first slide |
+|---|---|
+| Preview discovered by the module that imports it | 3,830 ms |
+| Declared in the document | 3,325 ms |
+| Declared + pdf.js dynamic, no preload for it | 3,948 ms |
+| **Declared + pdf.js dynamic + declared in the map** | **2,304 ms** |
+
+Three findings behind that table:
+
+**The image was fetched late because nothing declared it.** It is imported by
+the viewer module, so the browser could not discover it until that module had
+downloaded, parsed and executed. Declared in the document it starts at ~800 ms
+and is downloaded by ~1,500 ms.
+
+**Then the bottleneck moved from network to parsing.** The image was in hand at
+1.6 s and could not be displayed until 3.3 s, because the module holding the
+`<img>` statically imported 365 KB of pdf.js. Loading pdf.js dynamically fixes
+that.
+
+**Doing that alone made it worse.** The route-preload map was built from static
+imports, so pdf.js fell out of it and was discovered late — costing more than
+the deferred parse saved. The map now follows a route chunk's own dynamic
+imports, one level deep. Transitively it reaches the router and therefore every
+route, which is the blanket preload the map exists to prevent.
+
+`requestIdleCallback` is used only for deferred pages 2..N and carries a 2 s
+timeout, so a busy device cannot postpone the document indefinitely.
+
+### Lighthouse cannot measure these routes
+
+Reported for completeness, not used as evidence:
+
+| Mode | Corporate | ERP |
+|---|---|---|
+| `simulate` | LCP 122.8 s, score 74 | LCP 30.1 s, score 55 |
+| `devtools` | did not complete | LCP 4.48 s, TBT `NaN`, score 0 |
+
+The cause is in the trace. Lighthouse observes unthrottled, where pdf.js takes
+the full-stream path and fetches the deck as **one 24,434,337-byte response**,
+then models that at 1,638 kbps — about 119 seconds — so LCP and TTI both land
+there. Both runs show identical deck bytes, so this is the simulator, not a
+change in what the product fetches.
+
+Before this work the simulated LCP read 2.72 s only because the LCP element was
+the toolbar's page-count label. It now tracks the actual slide, which is the
+honest candidate and the one the brief asked for — and exposes that the
+simulator's number was never describing the presentation.
+
+The figures used above are `PerformanceObserver` LCP and CLS from the page
+itself under real CDP throttling, which is what the visitor experiences.
+
+### Failure behaviour
+
+| | |
+|---|---|
+| Preview fails to load | It disappears; the PDF path is untouched |
+| PDF fails to load | Error panel with retry, open-in-tab and download |
+| Product has no approved deck | No preview at all |
+| Page one never paints | 30 s gate timeout releases the rest of the deck |
+
+The download always serves the original approved PDF: 24,433,969 bytes,
+`attachment; filename="CASPEL_Corporate_Presentation.pdf"`.
