@@ -174,3 +174,83 @@ describe('pdf.js worker lifecycle', () => {
     });
   });
 });
+
+// ==========================================================================
+// First-page priority
+//
+// The prerender margin is deliberately generous, so two or three pages qualify
+// to render the moment the deck opens. On a slow link their byte ranges compete
+// with the ranges page one needs: measured on the Corporate deck at mobile
+// throttling, first page went from 40.1s to 18.2s once the others waited.
+//
+// The risk the gate creates is that pages 2..N never render, so that is what
+// these tests hold. happy-dom has no canvas context, so page one can never
+// report itself rendered here -- which is exactly the stuck case worth testing,
+// and it is why the timeout escape exists.
+// ==========================================================================
+
+describe('first-page priority', () => {
+  function loadedDoc(numPages: number) {
+    const asked: number[] = [];
+    return {
+      asked,
+      doc: {
+        numPages,
+        getPage: vi.fn(async (n: number) => {
+          asked.push(n);
+          return {
+            getViewport: () => ({ width: 800, height: 600 }),
+            render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
+            cleanup: () => {},
+          };
+        }),
+        destroy: vi.fn(async () => {}),
+        cleanup: vi.fn(),
+      },
+    };
+  }
+
+  function mockLoad(doc: unknown) {
+    getDocument.mockReturnValue({
+      promise: Promise.resolve(doc),
+      // The component calls .catch on this during cleanup.
+      destroy: vi.fn(async () => {}),
+      onProgress: null,
+    });
+  }
+
+  it('asks for page one before any other page', async () => {
+    const { doc, asked } = loadedDoc(24);
+    mockLoad(doc);
+
+    render(<PdfViewer url="/api/presentations/caspel/stream" />);
+
+    await waitFor(() => expect(asked.length).toBeGreaterThan(0));
+    // Whatever else is requested afterwards, page one is first in the queue.
+    expect(asked[0]).toBe(1);
+  });
+
+  it('releases the rest of the deck even if page one never reports rendered', async () => {
+    // A delay, not a cancellation. A deck that shows only its first page for
+    // ever is a worse failure than a slow one, so the gate has a timeout and
+    // this is the environment in which that timeout matters.
+    vi.useFakeTimers();
+    try {
+      const { doc, asked } = loadedDoc(24);
+      mockLoad(doc);
+
+      render(<PdfViewer url="/api/presentations/caspel/stream" />);
+
+      await vi.advanceTimersByTimeAsync(50);
+      const beforeTimeout = [...asked];
+
+      // Past the gate's own timeout.
+      await vi.advanceTimersByTimeAsync(35000);
+
+      expect(beforeTimeout.every((n) => n === 1)).toBe(true);
+      expect(doc.getPage).toHaveBeenCalledWith(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
