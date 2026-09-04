@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # set GEMINI_CHAT_MODEL in .env (or the container environment) and
     # recreate the backend. No source edit is required.
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_CHAT_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_CHAT_MODEL: str = "gemini-3.1-flash-lite"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-2"
     #: Separate from the chat model on purpose. Transcription and grounded
     #: answering are different jobs, and swapping one must not silently swap
@@ -60,6 +60,24 @@ class Settings(BaseSettings):
     RATE_LIMIT_CHAT: str = "20/minute"
     #: Tighter than chat: each call uploads a file and runs a provider job.
     RATE_LIMIT_TRANSCRIBE: str = "10/minute"
+
+    # ---- Architecture and delivery -------------------------------------
+    #: Which answering architecture serves /api/chat.
+    #:
+    #: "rag"          retrieval + generation. The production default.
+    #: "full_context" the whole approved corpus in the prompt. An experiment.
+    #:
+    #: Server-owned on purpose: the browser must never be able to pick the
+    #: architecture, because the two have different cost and safety profiles.
+    AI_CONTEXT_MODE: str = "rag"
+
+    #: Streaming is opt-in until it has been verified in an environment.
+    #: A streamed answer that fails after the first token cannot become a 503,
+    #: so it is not something to switch on silently.
+    AI_STREAMING_ENABLED: bool = False
+
+    #: Heartbeat cadence, in provider chunks. 0 disables heartbeats.
+    AI_STREAM_HEARTBEAT_CHUNKS: int = 24
     RATE_LIMIT_EVENTS: str = "120/minute"
 
     model_config = SettingsConfigDict(
@@ -140,6 +158,14 @@ class Settings(BaseSettings):
         first item repeated five times.
         """
         problems: List[str] = []
+
+        # An unrecognised architecture must fail loudly rather than quietly
+        # falling back: a typo in AI_CONTEXT_MODE would otherwise silently
+        # serve a different system than the operator believes is running.
+        if self.AI_CONTEXT_MODE not in ("rag", "full_context"):
+            problems.append(
+                "AI_CONTEXT_MODE must be 'rag' or 'full_context'."
+            )
 
         if not self.DATABASE_URL and not self.POSTGRES_PASSWORD:
             problems.append("POSTGRES_PASSWORD is empty and no DATABASE_URL was supplied.")

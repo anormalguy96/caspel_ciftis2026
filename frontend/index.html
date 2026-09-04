@@ -40,15 +40,13 @@
 
     <link rel="icon" type="image/svg+xml" href="__VITE_APP_BASE_PATH__caspel-logo-horizontal.svg" />
     <link rel="apple-touch-icon" href="__VITE_APP_BASE_PATH__apple-touch-icon.png" />
-
-    <!-- Self-hosted; no CDN reference anywhere in this document (document.md §24). -->
-    <link
-      rel="preload"
-      href="__VITE_APP_BASE_PATH__fonts/Inter-var.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <!-- Self-hosted; no CDN reference anywhere in this document (document.md §24).
+         The preload link is injected at build time by caspel-font-preload, because
+         only the build knows the hashed filename the CSS actually requests. A
+         hardcoded href here pointed at /fonts/Inter-var.woff2, which does not
+         exist: the SPA fallback answered it with index.html, the browser threw
+         that away as the wrong type, and the real font still waited for the
+         stylesheet to parse. -->
   </head>
   <body>
     <div id="root"></div>

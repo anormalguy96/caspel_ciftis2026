@@ -5,13 +5,14 @@ from typing import List, Optional
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.presentations import PRESENTATIONS, file_sha256
 from app.models.entities import ChatMessage, ChatSession, Document, DocumentChunk
 from app.rag.embeddings import embedding_service
 from app.rag.errors import RagError
 from app.rag.extractor import PDFExtractor
 from app.rag.generation import generation_service
-from app.rag.language import resolve_response_language
+from app.rag.language import language_instruction, resolve_response_language
 from app.rag.retrieval import retrieval_service
 from app.schemas.schemas import ChatResponse, ChatSource
 
@@ -166,6 +167,91 @@ class RagService:
         )
         rows = (await db.execute(stmt)).scalars().all()
         return [r[: RagService.FOLLOWUP_TURN_CHARS] for r in reversed(rows) if r]
+
+    @staticmethod
+    async def prepare_stream(
+        db: AsyncSession,
+        session_id: str,
+        question: str,
+        ui_locale: Optional[str] = None,
+    ):
+        """Everything needed to stream an answer, resolved before the first byte.
+
+        Returns (records, chunks, response_language, persist).
+
+        Retrieval, language resolution and the architecture choice all happen
+        here, while the response can still legitimately be a 4xx/5xx. Once the
+        first token has gone out the status line is already 200, so anything
+        that could fail with a status has to fail before that point.
+
+        `persist` is a callable the route invokes only after a stream
+        completes. A transcript entry for an answer that failed halfway would
+        count an outage as an answered question.
+        """
+        response_language = resolve_response_language(question, ui_locale)
+        prior_user_turns = await RagService._recent_user_turns(db, session_id)
+
+        prompt_override = None
+        records_source = []
+
+        if settings.AI_CONTEXT_MODE == "full_context":
+            # The experimental arm. Server-selected only; the browser cannot
+            # reach it. Retrieval is skipped entirely and the whole approved
+            # corpus is serialised into the prompt.
+            from app.rag.full_context import (
+                build_corpus_block,
+                build_full_context_prompt,
+                load_corpus_records,
+            )
+
+            corpus_records = await load_corpus_records(db)
+            history = [{"role": "user", "content": t} for t in prior_user_turns]
+            prompt_override = build_full_context_prompt(
+                build_corpus_block(corpus_records),
+                question,
+                language_instruction(response_language),
+                history,
+            )
+            records_source = corpus_records
+            chunks_for_generation = corpus_records
+        else:
+            retrieved = await retrieval_service.retrieve(
+                db=db, query=question, prior_user_turns=prior_user_turns
+            )
+            records_source = retrieved
+            chunks_for_generation = retrieved
+
+        records, chunk_iter = await asyncio.to_thread(
+            generation_service.stream_response,
+            question,
+            chunks_for_generation,
+            response_language,
+            prompt_override,
+        )
+
+        # full_context supplies SourceRecords directly rather than chunks, so
+        # the records it hands back are already the right objects.
+        if settings.AI_CONTEXT_MODE == "full_context":
+            records = records_source
+
+        async def persist(answer_text: str) -> None:
+            if not answer_text.strip():
+                return
+            session = (
+                await db.execute(
+                    select(ChatSession).where(ChatSession.session_id == session_id)
+                )
+            ).scalar_one_or_none()
+            if session is None:
+                db.add(ChatSession(session_id=session_id))
+                await db.flush()
+            db.add(ChatMessage(session_id=session_id, role="user", content=question))
+            db.add(
+                ChatMessage(session_id=session_id, role="assistant", content=answer_text)
+            )
+            await db.commit()
+
+        return records, chunk_iter, response_language, persist
 
     @staticmethod
     async def ask(

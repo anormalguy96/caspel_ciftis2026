@@ -110,7 +110,10 @@
     "voiceTranscribing": "Transcribing…",
     "voiceDenied": "Microphone unavailable. Please type your question.",
     "voiceFailed": "Could not transcribe that. Please try again or type your question.",
-    "voiceReview": "Check the text before sending."
+    "voiceReview": "Check the text before sending.",
+    "streamGenerating": "Generating the answer",
+    "streamInterrupted": "The answer was interrupted. Please ask again.",
+    "thinking": "Thinking"
   },
   "aiEntry": {
     "label": "CASPEL AI",
@@ -148,7 +151,8 @@
     "viewerErrorText": "The document did not finish loading in this browser. You can try again, open it in a new tab, or download it to your device.",
     "loadingStatus": "Checking which presentations are published",
     "pageCount": "{{count}} page",
-    "pageCount_other": "{{count}} pages"
+    "pageCount_other": "{{count}} pages",
+    "slidePreviewAlt": "First slide of {{name}}, page {{page}}"
   },
   "notFound": {
     "title": "Page not found",

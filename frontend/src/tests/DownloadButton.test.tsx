@@ -68,12 +68,12 @@ describe('sizing contract', () => {
     css.indexOf('.viewer-bar__download:active')
   );
 
-  it('is 48-52px tall', () => {
+  it('is 44-48px tall', () => {
     const match = rule.match(/min-block-size:\s*(\d+)px/);
     expect(match, 'expected an explicit min-block-size').toBeTruthy();
     const height = Number(match![1]);
-    expect(height).toBeGreaterThanOrEqual(48);
-    expect(height).toBeLessThanOrEqual(52);
+    expect(height).toBeGreaterThanOrEqual(44);
+    expect(height).toBeLessThanOrEqual(48);
   });
 
   it('clears the 44px interactive minimum by construction', () => {
@@ -181,5 +181,51 @@ describe('download states', () => {
     unmount();
     // A timer firing into an unmounted tree is a React warning and a leak.
     expect(() => vi.advanceTimersByTime(5000)).not.toThrow();
+  });
+
+  /**
+   * The control must not resize when its label changes.
+   *
+   * The icon swap was already solved with a single grid cell, but the *label*
+   * was not: "Download" becomes "Download started", and the button grew with
+   * it. Measured across the responsive matrix, that was 54.3px of width change
+   * in English and 44.6px in Chinese, moving the button's left edge by up to
+   * 44px on a 360px-wide phone -- under the finger that had just pressed it.
+   *
+   * happy-dom does not lay out, so this asserts the mechanism rather than the
+   * pixels: every label state is rendered into the same grid cell, so the
+   * control is always as wide as its longest label. The pixel result is
+   * verified separately by the responsive matrix.
+   */
+  it('reserves the width of every label state so the control cannot resize', () => {
+    render(<DownloadPresentationButton slug="caspel" filename="CASPEL.pdf" />);
+    const reserve = document
+      .querySelector('[data-testid="download-presentation"]')!
+      .querySelector('.viewer-bar__download-reserve')!;
+
+    const reserved = [...reserve.children].map((c) => c.textContent);
+    expect(reserved).toHaveLength(3);
+    // The longest state must be among the reserved widths, or the control
+    // still grows when it is reached.
+    expect(reserved).toContain('Download started');
+    expect(reserved).toContain('Download failed');
+    expect(reserved).toContain('Download');
+  });
+
+  it('hides the reserved copies from assistive technology', () => {
+    render(<DownloadPresentationButton slug="caspel" filename="CASPEL.pdf" />);
+    const reserve = document.querySelector('.viewer-bar__download-reserve')!;
+    // Three extra copies of the label would otherwise be read out on focus.
+    expect(reserve.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('announces the outcome once, through the live region', async () => {
+    render(<DownloadPresentationButton slug="caspel" filename="CASPEL.pdf" />);
+    fireEvent.click(screen.getByTestId('download-presentation'));
+
+    const live = document.querySelector('[role="status"]')!;
+    await waitFor(() => expect(live.textContent).toContain('Download started'));
+    // The visible label changes too, but only the live region is announced.
+    expect(document.querySelectorAll('[role="status"]')).toHaveLength(1);
   });
 });

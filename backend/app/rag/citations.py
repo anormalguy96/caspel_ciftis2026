@@ -106,10 +106,24 @@ def strip_citation_markers(answer: str) -> str:
     Sources list, not "[SOURCE_2]" mid-sentence.
     """
     cleaned = CITATION_PATTERN.sub("", answer or "")
-    # Tidy the punctuation the removal leaves behind: "( )", "[]", doubled
+    # Tidy the punctuation the removal leaves behind: empty brackets, doubled
     # spaces, and a space before a full stop.
-    cleaned = re.sub(r"[\[(]\s*[\])]", "", cleaned)
-    cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
+    #
+    # The separator class in that first pattern matters. The prompt asks for one
+    # identifier per bracket pair and the model writes groups anyway --
+    # "[SOURCE_1, SOURCE_2, SOURCE_3]". Removing each identifier leaves the
+    # commas, and a pattern that only matched "[ ]" left a visitor reading
+    # "and database [,, ]." Found by asking the running application a real
+    # question on this, the default path -- not by reading this function.
+    # Full-width separators are in the class for the same reason the
+    # punctuation repair below carries full-width stops: a Chinese answer
+    # separates a list with 、 rather than a comma, so "[SOURCE_1、SOURCE_2]"
+    # would otherwise leave "[、]" in front of a visitor.
+    cleaned = re.sub(r"[\[(][\s,;、，；]*[\])]", "", cleaned)
+    # Full-width CJK punctuation is included. A Chinese answer that cited a
+    # source mid-sentence was left reading "解决方案 。", because the ASCII
+    # class alone does not contain 。，、！？：；.
+    cleaned = re.sub(r"\s+([,.;:!?。，、！？：；])", r"\1", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()

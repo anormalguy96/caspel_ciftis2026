@@ -69,12 +69,11 @@ export const DownloadPresentationButton: React.FC<DownloadPresentationButtonProp
     timerRef.current = window.setTimeout(() => setState('idle'), FEEDBACK_MS);
   }, [slug, filename, onDownloaded]);
 
-  const label =
-    state === 'started'
-      ? t('actions.downloadStarted', { defaultValue: 'Download started' })
-      : state === 'failed'
-        ? t('actions.downloadFailed', { defaultValue: 'Download failed' })
-        : t('actions.download');
+  const rest = t('actions.download');
+  const started = t('actions.downloadStarted', { defaultValue: 'Download started' });
+  const failed = t('actions.downloadFailed', { defaultValue: 'Download failed' });
+
+  const label = state === 'started' ? started : state === 'failed' ? failed : rest;
 
   return (
     <>
@@ -93,7 +92,21 @@ export const DownloadPresentationButton: React.FC<DownloadPresentationButtonProp
           <Check size={18} className="viewer-bar__download-glyph viewer-bar__download-glyph--done" />
           <AlertTriangle size={18} className="viewer-bar__download-glyph viewer-bar__download-glyph--fail" />
         </span>
-        <span className="viewer-bar__download-label">{label}</span>
+        {/* The label changes length between states -- "Download" becomes
+            "Download started" -- which measured 54px of width change in
+            English and 45px in Chinese, moving the control under the finger
+            that just pressed it. Every label is laid out in one grid cell, so
+            the control is always as wide as its longest state and cannot
+            resize. The reserved copies are hidden from assistive technology;
+            the live region below is what announces the change. */}
+        <span className="viewer-bar__download-label">
+          <span className="viewer-bar__download-labeltext">{label}</span>
+          <span className="viewer-bar__download-reserve" aria-hidden="true">
+            <span>{rest}</span>
+            <span>{started}</span>
+            <span>{failed}</span>
+          </span>
+        </span>
       </button>
 
       <span className="visually-hidden" role="status" aria-live="polite">

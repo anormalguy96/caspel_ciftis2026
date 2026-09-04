@@ -205,25 +205,54 @@
 .viewer-bar__download {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   flex-shrink: 0;
-  /* 50px sits inside the 48-52px band; the interactive box is the same
-     element, so it clears the 44px minimum by construction. */
-  min-block-size: 50px;
-  padding-inline: var(--space-lg);
-  font-size: 15px;
+  /* 44px matches the standard WCAG 2.5.5/2.5.8 touch target minimum by construction. */
+  min-block-size: 44px;
+  padding-inline: var(--space-md);
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #0b3d56 0%, #063044 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 2px 8px -1px rgba(6, 48, 68, 0.26),
+    0 1px 2px rgba(6, 48, 68, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
   /* The label is short in both languages and must never wrap to two lines
-     inside a 50px control. */
+     inside an interactive control. */
   white-space: nowrap;
   transition:
-    background-color var(--dur-micro) var(--ease-both),
-    color            var(--dur-micro) var(--ease-both),
-    transform        var(--dur-tap)   var(--ease-out);
+    background var(--dur-micro) var(--ease-both),
+    border-color var(--dur-micro) var(--ease-both),
+    box-shadow var(--dur-micro) var(--ease-both),
+    color var(--dur-micro) var(--ease-both),
+    transform var(--dur-tap) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .viewer-bar__download:not(:disabled):hover {
+    background: linear-gradient(135deg, #0f4b6a 0%, #083b53 100%);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow:
+      0 6px 18px -2px rgba(6, 48, 68, 0.35),
+      0 0 0 2px rgba(81, 183, 72, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .viewer-bar__download[data-state='idle']:not(:disabled):hover .viewer-bar__download-glyph--rest {
+    transform: translateY(1.5px);
+  }
 }
 
 .viewer-bar__download:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: translateY(1px) scale(0.98);
+  box-shadow:
+    0 2px 6px -1px rgba(6, 48, 68, 0.3),
+    inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Three glyphs in one grid cell: the confirmation swap cannot resize the
@@ -253,9 +282,48 @@
   transform: none;
 }
 
+/* Every label state occupies the same grid cell, so the control's width is the
+   width of its longest label and the confirmation swap cannot move it. Measured
+   before this: 54.3px of width change in English, 44.6px in Chinese, and the
+   left edge travelling up to 44px on a 360px phone -- under the finger that had
+   just pressed it. Reserving by layout rather than by a pixel value means a
+   retranslated label stays correct. */
+.viewer-bar__download-label {
+  display: grid;
+  place-items: center;
+}
+
+.viewer-bar__download-labeltext,
+.viewer-bar__download-reserve {
+  grid-area: 1 / 1;
+}
+
+.viewer-bar__download-reserve {
+  display: grid;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.viewer-bar__download-reserve > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.viewer-bar__download[data-state='started'] {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 4px 16px -2px rgba(16, 185, 129, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
 .viewer-bar__download[data-state='failed'] {
-  background-color: var(--color-surface-elevated);
-  color: var(--color-text);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  box-shadow:
+    0 4px 16px -2px rgba(220, 38, 38, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -273,8 +341,8 @@
     flex: 1 1 auto;
     justify-content: center;
     /* Never wider than the row, and never edge-to-edge on a large phone. */
-    max-inline-size: 320px;
-    padding-inline: var(--space-md);
+    max-inline-size: 260px;
+    padding-inline: var(--space-sm);
   }
 }
 

@@ -36,6 +36,20 @@ function Harness({
   );
 }
 
+/**
+ * The assistant asks /api/chat/stream first and falls back to /api/chat when it
+ * is absent. AI_STREAMING_ENABLED is false by default, so the honest fixture is
+ * a 404 on the stream route and the intended response on the plain one.
+ */
+function stubChatFetch(plain: () => Response | Promise<Response>) {
+  const mock = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).includes('/chat/stream')) return new Response('', { status: 404 });
+    return plain();
+  });
+  vi.stubGlobal('fetch', mock);
+  return mock;
+}
+
 const MODALS: Array<[string, React.FC<{ isOpen: boolean; onClose: () => void }>]> = [
   ['RequestDemoModal', RequestDemoModal],
   ['CaspelAIModal', CaspelAIModal],
@@ -165,7 +179,7 @@ describe('CASPEL AI reports failure honestly', () => {
   }
 
   it('recedes the ambient field once a conversation starts, rather than swapping canvas', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
+    stubChatFetch(() => new Response('', { status: 503 }));
     const user = await openChat();
 
     const ambient = screen.getByTestId('chat-ambient');
@@ -194,7 +208,7 @@ describe('CASPEL AI reports failure honestly', () => {
   });
 
   it('shows a retryable unavailable state for a 503', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
+    stubChatFetch(() => new Response('', { status: 503 }));
     const user = await openChat();
 
     await ask(user);
@@ -205,7 +219,7 @@ describe('CASPEL AI reports failure honestly', () => {
   });
 
   it('does not record a 503 as an assistant answer', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
+    stubChatFetch(() => new Response('', { status: 503 }));
     const user = await openChat();
 
     await ask(user);
@@ -220,7 +234,7 @@ describe('CASPEL AI reports failure honestly', () => {
   });
 
   it('distinguishes a rate limit from an outage', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 429 })));
+    stubChatFetch(() => new Response('', { status: 429 }));
     const user = await openChat();
 
     await ask(user);
@@ -229,20 +243,21 @@ describe('CASPEL AI reports failure honestly', () => {
   });
 
   it('re-sends the question and shows the answer when Retry succeeds', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            answer: 'Caspel ERP consolidates finance and procurement.',
-            sources: [{ document: 'CASPEL ERP Presentation', page: 7, product: 'erp' }],
-            session_id: 'test-session',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
+    // First attempt on the plain endpoint fails; the retry succeeds. The
+    // stream route always 404s here, matching AI_STREAMING_ENABLED=false.
+    let plainCalls = 0;
+    stubChatFetch(() => {
+      plainCalls += 1;
+      if (plainCalls === 1) return new Response('', { status: 503 });
+      return new Response(
+        JSON.stringify({
+          answer: 'Caspel ERP consolidates finance and procurement.',
+          sources: [{ document: 'CASPEL ERP Presentation', page: 7, product: 'erp' }],
+          session_id: 'test-session',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
-    vi.stubGlobal('fetch', fetchMock);
+    });
 
     const user = await openChat();
     await ask(user);

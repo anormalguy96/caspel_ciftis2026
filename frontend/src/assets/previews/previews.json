@@ -1,0 +1,26 @@
+{
+  "caspel": {
+    "bytes": 62090,
+    "format": "webp",
+    "height": 608,
+    "quality": 80,
+    "sha256": "ebe278d033922aa9dc03c2c0c3d05027a2ffb6a02c1ada95783375980978e9e4",
+    "slug": "caspel",
+    "source_file": "CASPEL_Corporate_Presentation.pdf",
+    "source_page": 1,
+    "source_sha256": "051796d6e7e6f9243739b2985a0d8d04525e55d8ef6067ba78aa3aa9e1811f03",
+    "width": 1080
+  },
+  "erp": {
+    "bytes": 45280,
+    "format": "webp",
+    "height": 608,
+    "quality": 80,
+    "sha256": "e96ea6eec9e7e03b6eb16a555ee2e25c08d7424566a0c1b23fbff80c7edcb704",
+    "slug": "erp",
+    "source_file": "CASPEL_ERP_Presentation.pdf",
+    "source_page": 1,
+    "source_sha256": "e7033d04ff59141572ffd4cdd57163c031d7faa39052c51e29424dd0cf50aab7",
+    "width": 1080
+  }
+}

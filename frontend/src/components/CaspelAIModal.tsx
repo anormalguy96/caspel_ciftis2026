@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, BookOpen, AlertTriangle, RotateCw } from 'lucide-react';
-import { ChatMessage } from '../types';
+import { ChatMessage, ChatSource } from '../types';
 import { sendChatMessage, ChatUnavailableError, ChatRateLimitedError } from '../services/api';
 import { getSessionId, trackAnalyticsEvent } from '../services/analytics';
+import { useStreamingAnswer } from '../hooks/useStreamingAnswer';
+import { fetchChatCapabilities } from '../services/chatStream';
 import { useTranslation } from 'react-i18next';
 import { currentLocale } from '../i18n';
 import { useExitTransition } from '../hooks/useExitTransition';
@@ -46,6 +48,8 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ChatFailure | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** The scrolling transcript, needed to ask where the visitor is looking. */
+  const logRef = useRef<HTMLDivElement>(null);
   const seededRef = useRef<string | undefined>(undefined);
 
   const transitionState = useExitTransition(isOpen);
@@ -54,59 +58,206 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
   /** True until the visitor has actually asked something. */
   const isEmptyState = messages.length === 0 && !isLoading && !failure;
 
+  /**
+   * How far from the bottom still counts as "watching the answer arrive".
+   *
+   * Roughly a line and a half, so a visitor who is following along is not
+   * disqualified by the few pixels a smooth scroll leaves behind.
+   */
+  const NEAR_BOTTOM_PX = 96;
+
+  const isNearBottom = useCallback(() => {
+    const log = logRef.current;
+    if (!log) return true;
+    // No overflow yet means there is nowhere to be but the bottom.
+    if (log.scrollHeight <= log.clientHeight + 1) return true;
+    return log.scrollHeight - log.scrollTop - log.clientHeight <= NEAR_BOTTOM_PX;
+  }, []);
+
+  /** Whether the view should keep pace with the answer. */
+  const followRef = useRef(true);
+
+  /**
+   * Decides, from the transcript's own scroll position, whether the visitor is
+   * still following along.
+   *
+   * This cannot be answered by measuring the distance at update time. A
+   * streamed answer grows faster than a smooth scroll animates, so the gap
+   * exceeds any sensible threshold on its own and auto-follow switches itself
+   * off while the visitor is doing nothing at all -- measured: following
+   * stopped 282px from the bottom and never resumed.
+   *
+   * Following therefore scrolls instantly and lands exactly at the bottom, so a
+   * scroll event that reports any real distance was produced by the visitor.
+   * That makes the rule self-correcting in both directions: scrolling up stops
+   * the following, scrolling back to the bottom resumes it, and there is no
+   * "took control" flag that can get stuck.
+   */
+  useEffect(() => {
+    const log = logRef.current;
+    if (!isOpen || !log) return;
+    const onScroll = () => {
+      followRef.current = isNearBottom();
+    };
+    log.addEventListener('scroll', onScroll, { passive: true });
+    return () => log.removeEventListener('scroll', onScroll);
+  }, [isOpen, isNearBottom]);
+
+
+  /**
+   * The single place an assistant message enters the transcript.
+   *
+   * Both delivery paths funnel through here, so a streamed answer and a plain
+   * one cannot drift apart in shape, and exactly one entry is recorded per
+   * question however it was answered.
+   */
+  const commitAnswer = useCallback((content: string, sources: ChatSource[]) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        content,
+        sources,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    setIsLoading(false);
+  }, []);
+
+  /** The original non-streaming path, unchanged in behaviour. */
+  const askPlain = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      try {
+        const response = await sendChatMessage(getSessionId(), query, currentLocale());
+        commitAnswer(response.answer, response.sources ?? []);
+      } catch (error) {
+        // A failed call is NOT an answer. Recording it as an assistant message
+        // would put an outage into the transcript as though CASPEL AI had
+        // replied, and would count toward answered questions.
+        const message =
+          error instanceof ChatRateLimitedError
+            ? t('ai.rateLimited')
+            : error instanceof ChatUnavailableError
+              ? t('ai.unavailable')
+              : t('ai.networkError');
+        setFailure({ question: query, message });
+        setIsLoading(false);
+      }
+    },
+    [commitAnswer, t]
+  );
+
+  /**
+   * Warms the capability answer as soon as the modal opens.
+   *
+   * The result is cached for the page's lifetime, so this is a head start
+   * rather than the lookup itself: `ask` awaits the same promise. Asking here
+   * means that by the time a visitor has finished typing, the answer is already
+   * in hand and awaiting it costs nothing.
+   *
+   * Deliberately not aborted on close. The reply is one boolean of server
+   * configuration and it is wanted for the next open too; cancelling it would
+   * only guarantee the work is repeated.
+   */
   useEffect(() => {
     if (!isOpen) return;
+    void fetchChatCapabilities();
+  }, [isOpen]);
+
+  const stream = useStreamingAnswer({
+    onComplete: (content, sources) => commitAnswer(content, sources),
+    onUnavailable: (query) => {
+      // The route never ran: nothing was generated and nothing recorded, so
+      // falling back cannot duplicate a generation or an analytics event.
+      void askPlain(query);
+    },
+    onInterrupted: (query) => {
+      // The provider WAS called. Retrying automatically would generate twice,
+      // so the visitor is told plainly and decides whether to ask again.
+      setFailure({ question: query, message: t('ai.streamInterrupted') });
+      setIsLoading(false);
+    },
+  });
+
+  /**
+   * Follows the answer, but only for a visitor who is already at the bottom.
+   *
+   * This used to scroll unconditionally. Someone who scrolled up to re-read an
+   * earlier paragraph was yanked back down the moment the next update landed --
+   * measured at 2,852px of unrequested travel while the answer was still
+   * arriving.
+   *
+   * Reading the position at the moment of each update is what makes this
+   * self-correcting: scrolling up stops the following because they are no
+   * longer near the bottom, and scrolling back down resumes it, with no
+   * "the visitor took control" flag to get stuck on.
+   *
+   * It runs on the streamed text as well as on committed messages, so the view
+   * tracks the answer as it is written rather than jumping once at the end.
+   */
+  useEffect(() => {
+    if (!isOpen || !followRef.current) return;
+    const log = logRef.current;
+
+    // While text is arriving, jump. Smooth animation cannot keep pace with a
+    // stream and leaves the view trailing the words being written; it is also
+    // what made the position unreadable as a signal of visitor intent.
+    if (stream.phase === 'streaming' && log) {
+      log.scrollTop = log.scrollHeight;
+      return;
+    }
+
     // Honour a reduced-motion preference here too: an abrupt jump is the
     // correct behaviour for someone who asked not to be moved.
     const reduced =
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     messagesEndRef.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
-  }, [messages, failure, isOpen]);
+  }, [messages, failure, isOpen, stream.text, stream.phase]);
 
-  const ask = useCallback(async (query: string, echoQuestion: boolean) => {
-    setFailure(null);
-    setIsLoading(true);
+  const ask = useCallback(
+    async (query: string, echoQuestion: boolean) => {
+      setFailure(null);
+      setIsLoading(true);
 
-    if (echoQuestion) {
-      setMessages((prev) => [
-        ...prev,
-        { id: `user_${Date.now()}`, role: 'user', content: query, timestamp: new Date().toISOString() },
-      ]);
-      // Count the question without copying its text here: the message is already
-      // stored by /api/chat, and logging it twice spreads visitor-entered content
-      // across two systems for no benefit.
-      trackAnalyticsEvent('AI_QUESTION');
-    }
+      if (echoQuestion) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `user_${Date.now()}`, role: 'user', content: query, timestamp: new Date().toISOString() },
+        ]);
+        // Counted once, here, whichever path answers it. The text is not
+        // copied: the message is already stored server-side, and logging it
+        // twice spreads visitor-entered content across two systems.
+        trackAnalyticsEvent('AI_QUESTION');
+      }
 
-    try {
-      const response = await sendChatMessage(getSessionId(), query, currentLocale());
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant_${Date.now()}`,
-          role: 'assistant',
-          content: response.answer,
-          sources: response.sources,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } catch (error) {
-      // A failed call is NOT an answer. Recording it as an assistant message
-      // would put a service outage into the transcript as though CASPEL AI had
-      // replied, and would count toward answered questions in the exhibition
-      // report. It is surfaced as an explicit, retryable failure instead.
-      const message =
-        error instanceof ChatRateLimitedError
-          ? t('ai.rateLimited')
-          : error instanceof ChatUnavailableError
-            ? t('ai.unavailable')
-            : t('ai.networkError');
-      setFailure({ question: query, message });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      // Ask the server which delivery paths exist rather than discovering it by
+      // attempting the streaming route and reading its 404. Streaming is off by
+      // default, so that discovery put a failed request in front of every
+      // visitor question on a default deployment.
+      //
+      // Awaited rather than read from a ref that an effect fills in: a question
+      // sent in the same tick as the modal opening would otherwise race the
+      // probe and silently take the plain path even where streaming is on. The
+      // answer is cached and already in flight from the effect above, so this
+      // resolves immediately in practice and correctly in every case. A probe
+      // that fails resolves to `false`, which is the endpoint that has always
+      // worked.
+      const { streaming } = await fetchChatCapabilities();
+      if (!streaming) {
+        await askPlain(query);
+        return;
+      }
+
+      // The streaming route still answers 404 when disabled and onUnavailable
+      // still falls back, so a flag that changes underneath a rolling deploy
+      // stays safe. This removed a wasted request, not the safety net.
+      await stream.start(query, getSessionId(), currentLocale());
+    },
+    [stream, askPlain, t]
+  );
 
   const handleSendMessage = useCallback(
     (text: string) => {
@@ -208,6 +359,7 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
         </div>
 
         <div
+          ref={logRef}
           className="chat__log"
           data-empty={isEmptyState ? 'true' : 'false'}
           role="log"
@@ -305,9 +457,33 @@ export const CaspelAIModal: React.FC<CaspelAIModalProps> = ({ isOpen, onClose, i
           {isLoading && (
             <div className="chat__row chat__row--assistant">
               <span className="chat__speaker">{t('ai.title')}</span>
-              <div className="chat__message chat__message--assistant chat__message--loading">
-                <Dots />
+              <div
+                className="chat__message chat__message--assistant"
+                data-stream={stream.phase}
+                data-testid="streaming-answer"
+              >
+                {stream.text ? (
+                  <>
+                    {/* The same renderer the finished answer uses, so text does
+                        not reflow when the stream commits. */}
+                    <MarkdownRenderer content={stream.text} />
+                    {stream.phase === 'streaming' && (
+                      <span className="chat__cursor" aria-hidden="true" />
+                    )}
+                  </>
+                ) : (
+                  <span className="chat__message--loading">
+                    <Dots />
+                  </span>
+                )}
               </div>
+              {/*
+                Announced once per phase rather than per token: a live region
+                that updates on every delta makes a screen reader unusable.
+              */}
+              <span className="visually-hidden" role="status" aria-live="polite">
+                {stream.phase === 'streaming' ? t('ai.streamGenerating') : t('ai.thinking')}
+              </span>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /**
@@ -172,5 +172,183 @@ describe('pdf.js worker lifecycle', () => {
     await waitFor(() => {
       expect(mocks.workerDestroy).toHaveBeenCalled();
     });
+  });
+});
+
+// ==========================================================================
+// First-page priority
+//
+// The prerender margin is deliberately generous, so two or three pages qualify
+// to render the moment the deck opens. On a slow link their byte ranges compete
+// with the ranges page one needs: measured on the Corporate deck at mobile
+// throttling, first page went from 40.1s to 18.2s once the others waited.
+//
+// The risk the gate creates is that pages 2..N never render, so that is what
+// these tests hold. happy-dom has no canvas context, so page one can never
+// report itself rendered here -- which is exactly the stuck case worth testing,
+// and it is why the timeout escape exists.
+// ==========================================================================
+
+describe('first-page priority', () => {
+  function loadedDoc(numPages: number) {
+    const asked: number[] = [];
+    return {
+      asked,
+      doc: {
+        numPages,
+        getPage: vi.fn(async (n: number) => {
+          asked.push(n);
+          return {
+            getViewport: () => ({ width: 800, height: 600 }),
+            render: () => ({ promise: Promise.resolve(), cancel: () => {} }),
+            cleanup: () => {},
+          };
+        }),
+        destroy: vi.fn(async () => {}),
+        cleanup: vi.fn(),
+      },
+    };
+  }
+
+  function mockLoad(doc: unknown) {
+    getDocument.mockReturnValue({
+      promise: Promise.resolve(doc),
+      // The component calls .catch on this during cleanup.
+      destroy: vi.fn(async () => {}),
+      onProgress: null,
+    });
+  }
+
+  it('asks for page one before any other page', async () => {
+    const { doc, asked } = loadedDoc(24);
+    mockLoad(doc);
+
+    render(<PdfViewer url="/api/presentations/caspel/stream" />);
+
+    await waitFor(() => expect(asked.length).toBeGreaterThan(0));
+    // Whatever else is requested afterwards, page one is first in the queue.
+    expect(asked[0]).toBe(1);
+  });
+
+  it('releases the rest of the deck even if page one never reports rendered', async () => {
+    // A delay, not a cancellation. A deck that shows only its first page for
+    // ever is a worse failure than a slow one, so the gate has a timeout and
+    // this is the environment in which that timeout matters.
+    vi.useFakeTimers();
+    try {
+      const { doc, asked } = loadedDoc(24);
+      mockLoad(doc);
+
+      render(<PdfViewer url="/api/presentations/caspel/stream" />);
+
+      await vi.advanceTimersByTimeAsync(50);
+      const beforeTimeout = [...asked];
+
+      // Past the gate's own timeout.
+      await vi.advanceTimersByTimeAsync(35000);
+
+      expect(beforeTimeout.every((n) => n === 1)).toBe(true);
+      expect(doc.getPage).toHaveBeenCalledWith(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// ==========================================================================
+// Progressive replacement
+//
+// The preview stands in for page one until the interactive page has painted.
+// The two failure modes worth guarding are showing page one twice, and taking
+// the slide away before there is anything to replace it with.
+// ==========================================================================
+
+describe('first-slide preview replacement', () => {
+  const preview = {
+    src: '/assets/erp-slide-1-test.webp',
+    width: 1080,
+    height: 608,
+    sourceSha256: 'e7033d04ff59141572ffd4cdd57163c031d7faa39052c51e29424dd0cf50aab7',
+    sourcePage: 1,
+  };
+
+  function neverResolvingLoad() {
+    getDocument.mockReturnValue({
+      promise: new Promise(() => {}),
+      destroy: vi.fn(async () => {}),
+      onProgress: null,
+    });
+  }
+
+  it('shows the slide before the document has loaded', async () => {
+    neverResolvingLoad();
+    render(
+      <PdfViewer
+        url="/api/presentations/erp/stream"
+        preview={preview}
+        previewLabel="First slide of CASPEL ERP Presentation, page 1"
+      />
+    );
+
+    const img = await screen.findByAltText('First slide of CASPEL ERP Presentation, page 1');
+    expect(img).toHaveAttribute('src', preview.src);
+    // Intrinsic dimensions reserve the box, so the canvas replaces it without
+    // moving anything.
+    expect(img).toHaveAttribute('width', '1080');
+    expect(img).toHaveAttribute('height', '608');
+  });
+
+  it('asks the browser to treat the slide as important', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    const img = await screen.findByAltText('Slide');
+    // It is the largest contentful paint on this route and the reason the
+    // visitor navigated here; discovering it lazily would defeat the point.
+    expect(img).toHaveAttribute('loading', 'eager');
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+  });
+
+  it('keeps the slide visible while the document is still loading', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    await screen.findByAltText('Slide');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+    // Removing it when the document resolves rather than when page one paints
+    // would show the visitor an empty box for several seconds.
+    expect(screen.queryByAltText('Slide')).toBeInTheDocument();
+  });
+
+  it('drops the slide if the image itself fails, without blocking the viewer', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    const img = await screen.findByAltText('Slide');
+    fireEvent.error(img);
+
+    // A broken preview degrades to exactly the behaviour that existed before it.
+    await waitFor(() => expect(screen.queryByAltText('Slide')).toBeNull());
+    expect(document.querySelector('.pdf-viewer')).toBeInTheDocument();
+  });
+
+  it('shows nothing extra when a product has no preview', () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/pms/stream" />);
+    expect(document.querySelector('.pdf-viewer__preview')).toBeNull();
+  });
+
+  it('never lets the preview intercept the viewer controls', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    await screen.findByAltText('Slide');
+    const box = document.querySelector('.pdf-viewer__preview') as HTMLElement;
+    // Declared in CSS; asserted here because a preview that swallowed taps on
+    // the toolbar would be worse than no preview.
+    expect(box.className).toContain('pdf-viewer__preview');
+    expect(box.getAttribute('data-state')).toBe('visible');
   });
 });

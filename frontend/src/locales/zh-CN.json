@@ -110,7 +110,10 @@
     "voiceTranscribing": "转写中…",
     "voiceDenied": "无法使用麦克风。请输入您的问题。",
     "voiceFailed": "无法转写。请重试或输入您的问题。",
-    "voiceReview": "发送前请检查文字。"
+    "voiceReview": "发送前请检查文字。",
+    "streamGenerating": "正在生成回答",
+    "streamInterrupted": "回答已中断。请重新提问。",
+    "thinking": "思考中"
   },
   "aiEntry": {
     "label": "CASPEL AI",
@@ -148,7 +151,8 @@
     "viewerErrorText": "文档未能在当前浏览器中加载完成。您可以重试、在新标签页中打开，或下载到本地设备。",
     "loadingStatus": "正在确认已发布的演示文稿",
     "pageCount": "{{count}} 页",
-    "pageCount_other": "{{count}} 页"
+    "pageCount_other": "{{count}} 页",
+    "slidePreviewAlt": "{{name}} 第 {{page}} 页（首页幻灯片）"
   },
   "notFound": {
     "title": "页面不存在",
