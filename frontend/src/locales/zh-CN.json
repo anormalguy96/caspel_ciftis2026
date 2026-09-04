@@ -151,7 +151,8 @@
     "viewerErrorText": "文档未能在当前浏览器中加载完成。您可以重试、在新标签页中打开，或下载到本地设备。",
     "loadingStatus": "正在确认已发布的演示文稿",
     "pageCount": "{{count}} 页",
-    "pageCount_other": "{{count}} 页"
+    "pageCount_other": "{{count}} 页",
+    "slidePreviewAlt": "{{name}} 第 {{page}} 页（首页幻灯片）"
   },
   "notFound": {
     "title": "页面不存在",

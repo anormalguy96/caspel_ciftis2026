@@ -151,7 +151,8 @@
     "viewerErrorText": "The document did not finish loading in this browser. You can try again, open it in a new tab, or download it to your device.",
     "loadingStatus": "Checking which presentations are published",
     "pageCount": "{{count}} page",
-    "pageCount_other": "{{count}} pages"
+    "pageCount_other": "{{count}} pages",
+    "slidePreviewAlt": "First slide of {{name}}, page {{page}}"
   },
   "notFound": {
     "title": "Page not found",

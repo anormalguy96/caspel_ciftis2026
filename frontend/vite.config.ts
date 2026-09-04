@@ -125,6 +125,22 @@ function routeChunkPreloadPlugin(basePath: string): Plugin {
     { test: '/display', chunk: /(^|\/)DisplayPage-[^/]+\.js$/ },
   ];
 
+  /**
+   * The first-slide preview belonging to each product route.
+   *
+   * It is imported by the viewer module, so without this the browser cannot
+   * discover it until that module has downloaded, parsed and executed --
+   * measured at 3.3s on the throttled profile, for a 45KB image that is the one
+   * thing the visitor came to see. Declared here, it starts with the document.
+   *
+   * Keyed to the exact product, so opening the ERP deck never fetches the
+   * Corporate slide and the landing page fetches neither.
+   */
+  const PREVIEWS: ReadonlyArray<{ test: string; asset: RegExp }> = [
+    { test: '/product/caspel', asset: /(^|\/)caspel-slide-1-[^/]+\.webp$/ },
+    { test: '/product/erp', asset: /(^|\/)erp-slide-1-[^/]+\.webp$/ },
+  ];
+
   return {
     name: 'caspel-route-chunk-preload',
     apply: 'build',
@@ -134,9 +150,8 @@ function routeChunkPreloadPlugin(basePath: string): Plugin {
         const bundle = ctx.bundle;
         if (!bundle) return html;
 
-        /** A chunk plus everything it statically imports, transitively. */
-        const withDependencies = (entry: string): string[] => {
-          const seen = new Set<string>();
+        /** Everything a chunk statically imports, transitively. */
+        const staticClosure = (entry: string, seen = new Set<string>()): Set<string> => {
           const queue = [entry];
           while (queue.length) {
             const file = queue.shift() as string;
@@ -146,6 +161,29 @@ function routeChunkPreloadPlugin(basePath: string): Plugin {
             if (chunk && chunk.type === 'chunk') {
               for (const next of chunk.imports) queue.push(next);
             }
+          }
+          return seen;
+        };
+
+        /**
+         * A route chunk, everything it statically needs, and the things it
+         * dynamically imports itself.
+         *
+         * The direct dynamic imports matter because pdf.js is loaded that way:
+         * parsing 365 KB must not block the viewer's first render, but the
+         * visitor needs it seconds later, and leaving it undeclared cost more in
+         * late discovery than the deferred parse saved.
+         *
+         * Deliberately one level deep. Following dynamic imports transitively
+         * reaches the router and therefore every other route, which would make
+         * this route pay for the display wall and the 404 page -- the blanket
+         * preload this plugin exists to avoid.
+         */
+        const withDependencies = (entry: string): string[] => {
+          const seen = staticClosure(entry);
+          const direct = bundle[entry];
+          if (direct && direct.type === 'chunk') {
+            for (const dynamic of direct.dynamicImports) staticClosure(dynamic, seen);
           }
           return Array.from(seen);
         };
@@ -162,14 +200,28 @@ function routeChunkPreloadPlugin(basePath: string): Plugin {
             .map((file) => `${basePath}${file}`);
           if (files.length) map[route.test] = files;
         }
-        if (!Object.keys(map).length) return html;
+        const previews: Record<string, string> = {};
+        for (const preview of PREVIEWS) {
+          const asset = Object.keys(bundle).find((file) => preview.asset.test(file));
+          if (asset) previews[preview.test] = `${basePath}${asset}`;
+        }
+
+        if (!Object.keys(map).length && !Object.keys(previews).length) return html;
 
         // Inlined rather than imported: a preload hint that needs its own
         // request to arrive has already lost the time it exists to save.
-        const script = `(function(){var m=${JSON.stringify(map)},p=location.pathname;` +
+        const script =
+          `(function(){var p=location.pathname,m=${JSON.stringify(map)},` +
+          `g=${JSON.stringify(previews)};` +
           `for(var k in m){if(p.indexOf(k)===-1)continue;` +
           `for(var i=0;i<m[k].length;i++){var l=document.createElement('link');` +
-          `l.rel='modulepreload';l.href=m[k][i];document.head.appendChild(l);}break;}})();`;
+          `l.rel='modulepreload';l.href=m[k][i];document.head.appendChild(l);}break;}` +
+          // The slide outranks the code that will display it: it is the largest
+          // contentful paint on this route and the reason the visitor navigated.
+          `for(var q in g){if(p.indexOf(q)===-1)continue;` +
+          `var e=document.createElement('link');e.rel='preload';e.as='image';` +
+          `e.href=g[q];e.setAttribute('fetchpriority','high');` +
+          `document.head.appendChild(e);break;}})();`;
 
         return {
           html,

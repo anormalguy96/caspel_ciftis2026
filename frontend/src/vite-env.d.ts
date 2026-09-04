@@ -24,3 +24,11 @@ declare module "*.mp4" {
   const src: string;
   export default src;
 }
+
+// Same reasoning for the first-slide previews: imported as modules so Vite
+// hashes them and resolves them against the deployment's base path, rather than
+// hardcoding a root-relative URL that would break under the corporate subpath.
+declare module "*.webp" {
+  const src: string;
+  export default src;
+}

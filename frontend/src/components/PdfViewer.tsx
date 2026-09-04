@@ -1,12 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCw, ExternalLink, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import * as pdfjsLib from 'pdfjs-dist';
+import type { SlidePreview } from '../config/slidePreviews';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-// Worker resolved through Vite so it is bundled and served from our own origin.
-// A CDN workerSrc would break behind the GFW (document.md §24).
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+/**
+ * pdf.js is imported when a document load begins, not when this module is
+ * evaluated.
+ *
+ * It is 365 KB, and parsing it at 4x CPU throttling delayed this component's
+ * very first render -- including the first-slide preview, which needs none of
+ * it. Measured: the preview was fully downloaded at 1.6s and could not be shown
+ * until 3.3s, because the module holding the <img> could not execute yet.
+ *
+ * The worker is resolved through Vite so it is bundled and served from our own
+ * origin; a CDN workerSrc would break behind the GFW (document.md §24).
+ */
+async function loadPdfjs() {
+  const [lib, worker] = await Promise.all([
+    import('pdfjs-dist'),
+    import('pdfjs-dist/build/pdf.worker.min.mjs?worker'),
+  ]);
+  return { pdfjsLib: lib, PdfWorker: worker.default };
+}
 
 /**
  * Renders each page to a canvas only once it approaches the viewport.
@@ -72,6 +88,16 @@ interface PdfViewerProps {
    * the visitor has started reading would take the page away from them.
    */
   focusPage?: number | null;
+  /**
+   * The deck's real first slide, rendered from the approved PDF.
+   *
+   * Shown while PDF.js starts, then replaced by the interactive page. Absent for
+   * a product with no approved deck, in which case the viewer behaves exactly as
+   * it did before.
+   */
+  preview?: SlidePreview | null;
+  /** Localized description of the preview, e.g. "CASPEL ERP Presentation, page 1". */
+  previewLabel?: string;
 }
 
 interface PageCanvasProps {
@@ -227,6 +253,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
   onDownload,
   onPageCountChange,
   focusPage = null,
+  preview = null,
+  previewLabel,
 }) => {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -247,8 +275,25 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
    * the deck must not be held hostage to it. After this the gate opens
    * regardless, so the worst case is the behaviour that existed before it.
    */
+  /**
+   * Whether the preview image failed to load.
+   *
+   * A missing or undecodable preview must not block anything: the viewer simply
+   * behaves as it did before this existed.
+   */
+  const [previewFailed, setPreviewFailed] = useState(false);
+
   const [firstPageReady, setFirstPageReady] = useState(false);
   const markFirstPageReady = useCallback(() => setFirstPageReady(true), []);
+
+  /**
+   * The preview is shown until the interactive first page has painted.
+   *
+   * Keyed on `firstPageReady` rather than on the document being loaded: the
+   * document resolves seconds before page one is actually on screen, and
+   * removing the slide in that window would show the visitor a blank box.
+   */
+  const showPreview = preview !== null && preview !== undefined && !previewFailed && !firstPageReady;
 
   useEffect(() => {
     if (firstPageReady) return;
@@ -270,6 +315,9 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     setZoom(1);
     setInitialAspect(null);
 
+    // Awaited here rather than imported at module scope: see loadPdfjs.
+    let disposed = false;
+
     // One worker per load, torn down with it.
     //
     // Setting GlobalWorkerOptions.workerPort once at module scope shares a
@@ -278,6 +326,10 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
     // pdf.js a dead worker and fail permanently. Creating the worker here is
     // what makes Retry actually work; destroying it in the cleanup below is
     // what stops each attempt leaking a Web Worker on a visitor's phone.
+    const startLoad = async () => {
+    const { pdfjsLib, PdfWorker } = await loadPdfjs();
+    if (cancelled || disposed) return null;
+
     const worker = new pdfjsLib.PDFWorker(
       // pdfjs-dist's generated constructor signature types `port` as
       // `null | undefined`, while its own PDFWorkerParameters JSDoc and the
@@ -327,15 +379,32 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
         }
       });
 
+      return { task, worker };
+    };
+
+    // Held so cleanup can tear down whatever the async load created,
+    // whether it has reached that point yet or not.
+    const started = startLoad().catch((err) => {
+      if (!cancelled) {
+        console.error('Failed to load presentation', err);
+        setState('error');
+      }
+      return null;
+    });
+
     return () => {
       cancelled = true;
+      disposed = true;
       // Destroy the worker only after the task has let go of it, otherwise
       // pdf.js logs a teardown error. Without this the viewer leaks one Web
       // Worker per Retry and per deck opened.
-      void task
-        .destroy()
-        .catch(() => {})
-        .finally(() => worker.destroy());
+      void started.then((handles) => {
+        if (!handles) return;
+        void handles.task
+          .destroy()
+          .catch(() => {})
+          .finally(() => handles.worker.destroy());
+      });
     };
   }, [url, onPageCountChange, reloadKey]);
 
@@ -507,7 +576,37 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       </div>
 
       <div className="pdf-viewer__scroll" ref={scrollRef}>
-        {state === 'loading' && (
+        {/* The deck's real first slide, rendered from the approved PDF.
+            It occupies exactly the box page one will occupy -- same width, same
+            aspect ratio, because it was rendered from that page -- so the
+            interactive canvas replaces it without moving anything. It is removed
+            the moment page one has painted, so page one is never shown twice. */}
+        {showPreview && preview && (
+          <div
+            className="pdf-viewer__preview"
+            style={{ aspectRatio: `${preview.width} / ${preview.height}` }}
+            data-state={firstPageReady ? 'replaced' : 'visible'}
+          >
+            <img
+              src={preview.src}
+              width={preview.width}
+              height={preview.height}
+              alt={previewLabel ?? ''}
+              // This is the largest thing on the route and the reason the
+              // visitor opened it, so it is fetched eagerly and at high
+              // priority rather than being discovered lazily.
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              onError={() => setPreviewFailed(true)}
+            />
+          </div>
+        )}
+
+        {/* Only when there is no slide to show. A progress bar in front of an
+            available first slide would be hiding the thing the visitor came
+            for. */}
+        {state === 'loading' && !showPreview && (
           <div className="pdf-viewer__loading">
             <div className="pdf-viewer__progress">
               <div className="pdf-viewer__progress-bar" style={{ width: `${progress}%` }} />

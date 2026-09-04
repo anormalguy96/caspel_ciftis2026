@@ -4,6 +4,7 @@ import { ArrowLeft, Calendar, AlertTriangle, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../components/Header';
 import { PdfViewer } from '../components/PdfViewer';
+import { getSlidePreview } from '../config/slidePreviews';
 import { parsePageParam } from '../utils/citationLink';
 import { RequestDemoModal } from '../components/RequestDemoModal';
 import { CaspelAIModal } from '../components/CaspelAIModal';
@@ -56,6 +57,14 @@ export const ProductPage: React.FC = () => {
   const product = useProduct(slug);
 
   const validSlug = product?.slug ?? null;
+  /**
+   * The deck's real first slide, shown while PDF.js starts.
+   *
+   * Only the product being viewed: the landing page and the other product never
+   * download it. Null for a product with no approved deck, which leaves the
+   * viewer behaving exactly as it did before.
+   */
+  const slidePreview = validSlug ? getSlidePreview(validSlug) : null;
   const entry = validSlug ? getEntry(validSlug) : undefined;
   const isAvailable = entry?.available ?? false;
 
@@ -200,6 +209,15 @@ export const ProductPage: React.FC = () => {
             url={product.presentationUrl}
             onDownload={handleDownload}
             onPageCountChange={setPageCount}
+            preview={slidePreview}
+            previewLabel={
+              slidePreview
+                ? t('presentation.slidePreviewAlt', {
+                    name: product.name,
+                    page: slidePreview.sourcePage,
+                  })
+                : undefined
+            }
           />
         )}
 

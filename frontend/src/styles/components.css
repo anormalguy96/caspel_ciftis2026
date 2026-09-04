@@ -496,6 +496,8 @@
 .pdf-viewer__scroll {
   flex: 1;
   min-height: 0;
+  /* Anchors the first-slide preview over the box page one will occupy. */
+  position: relative;
   overflow-y: auto;
   /* Zoomed pages grow inside this scroller rather than overflowing the app. */
   overflow-x: auto;
@@ -508,6 +510,41 @@
   touch-action: pan-y pinch-zoom;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+/* ============================================================
+   First-slide preview
+
+   The real first slide of the deck, rendered from the approved
+   PDF, shown while PDF.js starts. Page one of these decks is
+   1.5-1.7MB of its own bytes, which is 7-8 seconds of transfer
+   before it can appear; the preview is ~50KB.
+
+   It is positioned over the box page one will occupy rather
+   than placed in the flow, so the interactive canvas replaces
+   it without moving anything and page one is never shown twice.
+   The geometry below mirrors .pdf-page exactly.
+   ============================================================ */
+.pdf-viewer__preview {
+  position: absolute;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2 * var(--space-md));
+  max-width: 960px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  /* Never intercepts the viewer's controls, and cannot keep doing so after it
+     has been replaced. */
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pdf-viewer__preview img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .pdf-page {
