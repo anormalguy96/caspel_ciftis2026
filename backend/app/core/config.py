@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # set GEMINI_CHAT_MODEL in .env (or the container environment) and
     # recreate the backend. No source edit is required.
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_CHAT_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_CHAT_MODEL: str = "gemini-3.1-flash-lite"
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-2"
     #: Separate from the chat model on purpose. Transcription and grounded
     #: answering are different jobs, and swapping one must not silently swap

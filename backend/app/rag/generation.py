@@ -46,7 +46,7 @@ class GenerationResult:
 GENERATION_MAX_ATTEMPTS = 3
 GENERATION_RETRY_BASE_DELAY = 0.6  # seconds; doubles per attempt
 GENERATION_REQUEST_TIMEOUT_SECONDS = 20
-GENERATION_DEADLINE_SECONDS = 30
+GENERATION_DEADLINE_SECONDS = 40
 
 # A timeout gets exactly one more chance. Timeouts are worth retrying — they are
 # usually a stalled connection rather than a broken request — but each one costs
@@ -54,9 +54,11 @@ GENERATION_DEADLINE_SECONDS = 30
 # ends up waiting through several 20-second stalls.
 GENERATION_MAX_TIMEOUT_RETRIES = 1
 
-# Below this there is not enough deadline left for an attempt to plausibly
-# finish, so starting one only delays the honest failure.
-GENERATION_MIN_ATTEMPT_SECONDS = 2.0
+# Google Generative Language API strictly enforces that any custom client deadline
+# must be at least 10s (rejecting anything smaller with 400 INVALID_ARGUMENT).
+# Below this there is not enough deadline left to plausibly finish nor to satisfy
+# the API minimum, so starting one only delays the honest failure.
+GENERATION_MIN_ATTEMPT_SECONDS = 10.0
 
 # Bound on how far the __cause__/__context__ chain is walked.
 _MAX_CHAIN_NODES = 10
@@ -409,10 +411,16 @@ class GenerationService:
                 logger.warning("Gemini generation stopped: %s", last_summary)
                 break
 
+            attempt_timeout = max(
+                GENERATION_MIN_ATTEMPT_SECONDS,
+                min(GENERATION_REQUEST_TIMEOUT_SECONDS, budget),
+            )
             config = types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=1024,
+                thinking_config=types.ThinkingConfig(thinking_budget=512),
                 http_options=types.HttpOptions(
-                    timeout=int(min(GENERATION_REQUEST_TIMEOUT_SECONDS, budget) * 1000)
+                    timeout=int(attempt_timeout * 1000)
                 ),
             )
 
@@ -454,10 +462,21 @@ class GenerationService:
                         break
 
             delay = GENERATION_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+            if last_summary and "retry_after" in last_summary:
+                try:
+                    s_str = str(last_summary["retry_after"]).rstrip("s")
+                    delay = max(delay, float(s_str) + 0.5)
+                except (ValueError, TypeError):
+                    pass
+
             if remaining() - delay < GENERATION_MIN_ATTEMPT_SECONDS:
                 logger.warning(
                     "Gemini generation stopped: %s",
-                    {"reason": "no_time_for_retry", "remaining_s": round(max(0.0, remaining()), 1)},
+                    {
+                        "reason": "no_time_for_retry",
+                        "remaining_s": round(max(0.0, remaining()), 1),
+                        "required_delay_s": round(delay, 1),
+                    },
                 )
                 break
             time.sleep(delay)
@@ -531,6 +550,8 @@ class GenerationService:
                 # waiting through.
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
+                    max_output_tokens=1024,
+                    thinking_config=types.ThinkingConfig(thinking_budget=512),
                     http_options=types.HttpOptions(
                         timeout=int(GENERATION_DEADLINE_SECONDS * 1000)
                     ),

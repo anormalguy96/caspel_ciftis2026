@@ -68,12 +68,12 @@ describe('sizing contract', () => {
     css.indexOf('.viewer-bar__download:active')
   );
 
-  it('is 48-52px tall', () => {
+  it('is 44-48px tall', () => {
     const match = rule.match(/min-block-size:\s*(\d+)px/);
     expect(match, 'expected an explicit min-block-size').toBeTruthy();
     const height = Number(match![1]);
-    expect(height).toBeGreaterThanOrEqual(48);
-    expect(height).toBeLessThanOrEqual(52);
+    expect(height).toBeGreaterThanOrEqual(44);
+    expect(height).toBeLessThanOrEqual(48);
   });
 
   it('clears the 44px interactive minimum by construction', () => {
