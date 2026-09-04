@@ -30,6 +30,9 @@ and did not survive contact with primary documentation or measurement.
 | Viewer LCP measures time to PDF metadata | **Wrong** | LCP is the viewer bar at ~2.8 s; metadata arrives at ~24 s. LCP was gated on route-chunk discovery, which was fixable — so this reported an unfixable cause for a fixable problem (§7). |
 | Streaming is a delivered visitor feature | **Was not** | It was implemented and off by default, and the client discovered that by spending a failed request per question. Now server-advertised, with the enabling contract documented (§10). |
 | The non-streaming path renders citations cleanly | **Wrong** | Grouped markers left "[, ]" in visitor-facing text on the default path, three times in one answer (§10). |
+| The viewer downloads the whole PDF before metadata | **Wrong** | pdf.js already uses ranges: 16 of 17 requests are 206, and 2.0 MB of 5.5 MB is transferred before first paint. Metadata lands at 3.7–5.4 s (§12). |
+| First-page time is dominated by file size | **Wrong** | It was dominated by neighbouring pages competing for bandwidth. Fixing that took Corporate from 40.1 s to 18.2 s with no change to the file (§12). |
+| The five protected assets include a "logo" at fa66a874… | **Misidentified** | The approved artifact is `caspel-icon.svg` (`72702e76…`, unchanged). `fa66a874…` is `caspel-logo-horizontal.svg`. A reporting error, not an asset change (§13). |
 
 ---
 
@@ -399,8 +402,9 @@ label, or floating a large element into the viewport, would move the number
 without moving the experience — that is metric gaming, and the miss is more
 useful than a manufactured pass.
 
-Time to first PDF page is ~24 s at this throttling, which is the 5.4 MB deck
-arriving over a 1,638 kbps link. It is reported separately from LCP precisely so
+Time to first PDF page is measured and decomposed in §12. The earlier "~24 s
+is the 5.4 MB deck arriving" reading was wrong: only 2.0 MB is transferred
+before first paint, and the cost was competing page renders, not the file size. It is reported separately from LCP precisely so
 the preload cannot be read as having made the document itself faster. It did
 not; it made the application around the document arrive sooner.
 
@@ -750,13 +754,24 @@ available throughout, which is the reason it stays the default and the rollback.
 
 | Gate | Measured | Target |
 |---|---|---|
-| `/product/caspel` LCP | **2.79 s** | ≤ 2.5 s |
-| `/product/erp` LCP | **2.72 s** | ≤ 2.5 s |
+| `/product/caspel` LCP | **2.73 s** | ≤ 2.5 s |
+| `/product/erp` LCP | **2.73 s** | ≤ 2.5 s |
+| `/product/caspel` first visible slide | **18.2 s** | ≤ 5 s |
+| `/product/erp` first visible slide | **16.8 s** | ≤ 5 s |
 
-Both improved this pass (2.92 → 2.79 and 2.91 → 2.72) and both remain over.
-The cause is identified and the remaining time is document, main bundle and
-paint. It is recorded as a miss rather than worked around: no element was moved
-or hidden to change which one LCP selects.
+LCP improved across the pass (2.92 → 2.73 and 2.91 → 2.73) and both remain over.
+No element was moved or hidden to change which one LCP selects.
+
+First-slide time improved substantially — Corporate 40.1 s → 18.2 s, ERP
+19.2 s → 16.8 s — and remains far over its target. **The reason is arithmetic,
+not implementation:** the first slide's own bytes are 1.5–1.7 MB, a 7.4–8.3 s
+transfer floor at 1,638 kbps before any request is made (§12). Every delivery
+experiment that could have avoided that was tested and failed. The smallest
+next architecture step is identified and sized in §12; it was not built,
+because it is an architecture change rather than a tuning pass.
+
+Unthrottled, first slide is 0.94 s and 1.19 s. That is the likely venue
+experience and it is **not** used to claim the target is met.
 
 ### NOT VERIFIED
 
@@ -783,8 +798,221 @@ These need a person, a device, or an environment this work did not have.
 ### Standing
 
 Every functionality, correctness, accessibility, infrastructure and integrity
-gate passes. Two performance gates do not, and they are named above.
+gate passes. Four performance gates do not, and they are named above.
+
+**The performance work is not complete.** A visitor on the documented
+throttled-mobile profile still waits about 17–18 seconds for a slide. That is
+better than the 25–40 seconds this pass started from, and it is not acceptable
+as a finished result.
 
 **This is not production-approved.** The human gates in NOT VERIFIED —
 Simplified Chinese review, assistive-technology testing, and a decision on the
 viewer LCP exception — are approvals this work cannot grant itself.
+
+---
+
+## 12. Viewer delivery — time to a usable slide
+
+Toolbar LCP is not the visitor's experience. What matters at the stand is when a
+slide is on screen, so that is the acceptance metric here. It is reported
+separately from LCP throughout, so no scaffold or preload can be mistaken for
+having made the document itself faster.
+
+### Method
+
+Thirteen marks per trial, from the browser's own resource timings plus DOM state
+polling. Nothing is read off a screenshot. Each trial launches a **fresh browser
+with the cache disabled** — an earlier run shared one browser across trials and
+produced a 5.6 s-to-25.6 s spread on a single mark purely from cache warming.
+Three trials per configuration; medians and ranges below.
+
+Throttled profile: 150 ms RTT, 1,638 kbps down, CPU ×4, 412×823 @ DPR 1.75.
+
+### Decomposition — ERP, throttled, medians
+
+| Mark | Before | After | |
+|---|---|---|---|
+| navigation start | 0 | 0 | |
+| viewer route requested | 670 | 904 | |
+| viewer route evaluated | 2,071 | 2,116 | |
+| manifest request start → end | 2,056 → 2,215 | 2,094 → 2,262 | |
+| PDF request start | 2,438 | 2,507 | |
+| first PDF response byte | 2,449 | 2,518 | |
+| pdf.js worker ready | 2,332 | 2,403 | |
+| PDF metadata available | 5,416 | 5,641 | |
+| page count visible | 5,440 | 5,653 | |
+| first page render started | 5,474 | 5,660 | |
+| **first page visibly painted** | **19,247** | **16,840** | **−12.5%** |
+| viewer controls usable | 2,326 | 2,380 | |
+| full document downloaded | 38,505 | 38,716 | |
+
+### Decomposition — Corporate, throttled, medians
+
+| Mark | Before | After | |
+|---|---|---|---|
+| PDF metadata available | 3,760 | 3,742 | |
+| page count visible | 3,792 | 3,771 | |
+| first page render started | 3,835 | 3,778 | |
+| **first page visibly painted** | **40,146** | **18,190** | **−55%** |
+| full document downloaded | 53,581 | 57,042 | |
+
+Ranges were tight throughout (Corporate before 40,091–40,226; after
+18,158–18,228), so these are differences, not noise.
+
+### Unthrottled, same build
+
+| | metadata | first page painted | controls usable |
+|---|---|---|---|
+| Corporate | 680 ms | **941 ms** | 337 ms |
+| ERP | 925 ms | **1,190 ms** | 375 ms |
+
+A venue with ordinary Wi-Fi is much closer to this than to the throttled
+profile. It is reported for completeness and is **not** used to claim the target
+is met — the acceptance basis is the throttled profile.
+
+### Root cause
+
+pdf.js was already using range requests: 16 of 17 deck requests were `206`, and
+2.0 MB of the 5.5 MB file was transferred before first paint. So "the whole PDF
+downloads before metadata" was never true, and metadata was never the problem —
+it lands at 3.7–5.4 s.
+
+The gap was between *render started* (5.5 s) and *painted* (19.2 s). With an
+800 px prerender margin on an 823 px viewport, two or three pages qualify to
+render the moment the deck opens, and their byte ranges compete with page one's
+on a 1.6 Mbps link. The page the visitor is looking at loses to pages they
+cannot see.
+
+Neither deck is linearized — the cross-reference table sits at 97.8% through the
+ERP file — but that costs a few tail round trips, not twenty seconds.
+
+### Retained: first page first, the rest on idle
+
+Page one renders alone; the others wait for it, then wait for an idle main
+thread. Releasing them all at once merely relocated the cost (ERP TBT
+141 → 341 ms, score 93 → 86); yielding to input recovers it.
+
+The gate is a delay, not a cancellation: a 30 s timeout releases the deck even
+if page one never reports rendered.
+
+### Rejected: qpdf linearization
+
+Derivatives were generated outside Git and verified equivalent — identical page
+counts (24 and 41), identical text on **every** page, identical renders on
+first/middle/last, identical link and image counts, `fast web view` 0 → 1. The
+originals were byte-identical before and after.
+
+Measured, they were worse:
+
+| | original | linearized |
+|---|---|---|
+| ERP metadata | **5,152 ms** | 18,907 ms |
+| ERP first page | **19,166 ms** | 23,833 ms |
+| requests | **17** | 39 |
+| bytes | **2.08 MB** | 2.95 MB |
+
+Rejected. No duplicate 24 MB and 5 MB blobs are committed, and no `qpdf`
+dependency is added to any image.
+
+A second finding came out of this: the backend refuses to serve any PDF whose
+SHA256 does not match the approved digest, so a derivative cannot be served at
+all without registering a second approved digest. That guard is correct and was
+left alone; the experiment ran against a throwaway container.
+
+### Rejected: rangeChunkSize tuning
+
+Monotonically worse than the 64 KiB default at every value tested:
+
+| chunk | metadata | first page | requests | bytes |
+|---|---|---|---|---|
+| 64 KiB (default) | **5,416** | **19,247** | 17 | **7.56 MB** |
+| 128 KiB | 6,336 | 19,377 | 12 | 7.69 MB |
+| 256 KiB | 7,398 | 20,003 | 10 | 8.08 MB |
+| 512 KiB | 10,041 | 20,371 | 8 | 8.87 MB |
+| 1 MiB | 14,898 | 30,303 | 7 | 10.96 MB |
+
+Fewer requests, but each over-fetches; the extra bytes cost more than the round
+trips saved.
+
+### Why 5 seconds is not reachable, and what would reach it
+
+Page one is not small:
+
+| | page 1 alone | its images | transfer floor @1.6 Mbps |
+|---|---|---|---|
+| Corporate | 1,692,970 B | 2 images, 1.64 MB | **8.3 s** |
+| ERP | 1,519,317 B | 1 image, 1.48 MB | **7.4 s** |
+
+**The first slide's own bytes exceed the five-second budget before a single
+request is made.** No delivery strategy — ranges, chunk sizes, linearization —
+can transfer 1.5 MB in under 5 s on a 1.6 Mbps link. That is why the simple
+experiments failed, and it is arithmetic rather than an implementation defect.
+
+The smallest next architecture step, reported rather than built, is a
+pre-rendered first-page image served alongside the deck. Sizing it from the
+approved PDFs:
+
+| width | format | Corporate | ERP | transfer @1.6 Mbps |
+|---|---|---|---|---|
+| 1080 px | JPEG q82 | 118,682 B | 93,092 B | **0.45–0.58 s** |
+| 720 px | JPEG q82 | 57,106 B | 47,854 B | 0.23–0.28 s |
+
+13–16× less than the PDF page, and it would put a real first slide on screen in
+about half a second. It is a genuine architecture change — generation,
+integrity, caching and an honest hand-off to the interactive viewer — and is out
+of scope for this pass. It should not be built as a decorative skeleton: it must
+show the actual first page, be generated from the approved PDF, and time to the
+real interactive page must continue to be reported separately.
+
+---
+
+## 13. Protected assets — path-specific
+
+An earlier report listed five protected assets and identified one of them only
+as "logo". That was not a sufficient identifier and it named the wrong file: the
+approved artifact is `caspel-icon.svg`, and the hash reported was
+`caspel-logo-horizontal.svg`'s. **A reporting error, not an asset change** — the
+table below is path-specific so the ambiguity cannot recur.
+
+| Path | SHA256 | Bytes | Blob | HEAD = origin/main = working tree | Blob first appeared | Changed since |
+|---|---|---|---|---|---|---|
+| `data/presentations/CASPEL_Corporate_Presentation.pdf` | `051796d6…1f03` | 24,433,969 | `34b68ae8` | yes | `b1e2dca` | 0 commits |
+| `data/presentations/CASPEL_ERP_Presentation.pdf` | `e7033d04…aab7` | 5,480,032 | `b2df9fea` | yes | `b1e2dca` | 0 commits |
+| `frontend/src/assets/caspel.mp4` | `8ff1b1af…7119` | 29,156,565 | `31a8f4db` | yes | `c7d3a3b` | 0 commits |
+| `frontend/src/assets/caspel-icon.svg` | `72702e76…3750` | 1,401 | `47bda0b0` | yes | `8f5231b` | 0 commits |
+| `frontend/src/assets/ciftis-logo.png` | `e11e30ce…bad7` | 24,055 | `a3399561` | yes | `347a82c` | 0 commits |
+
+`caspel-icon.svg` is `72702e7640d149d9f4feaa6eb39ae014348a2e9b86bd95de45e16fcc17353750`
+— an exact match to the approved value, in the working tree, in `HEAD` and in
+`origin/main`.
+
+`fa66a874f1a43e0dd7faa5d5db67ae32546a23be91cba6c03c9012586df235f1` is
+`caspel-logo-horizontal.svg`, 16,220 bytes, which exists at two paths
+(`frontend/src/assets/` and `frontend/public/`) with identical content.
+
+The two PDF digests also match the values recorded in
+`docs/PHASE2_1_VERIFICATION_REPORT.md`.
+
+Every blob is unchanged since it first appeared, and every one of those commits
+is authored by the repository owner. "Protected" is verified here against the
+approved digest itself, not merely against `origin/main`.
+
+### Local operator files
+
+Untouched. Recorded for completeness only.
+
+| Path | On disk | Tracked | Ignored |
+|---|---|---|---|
+| `.env` | yes, 925 B | no | `.gitignore:12` |
+| `implementation.md` | yes, 12,641 B | no | `.gitignore:38` |
+| `cloudflared.exe` | yes, 54,893,480 B | no | `.gitignore:47` |
+| `clues.md` | **absent** | no | `.gitignore:48` |
+
+`git status --short --untracked-files=all` is empty because all four are
+gitignored — `--untracked-files=all` does not list ignored paths. `git status
+--ignored` shows the three that exist. `.gitignore` has no staged or unstaged
+change and is identical to `origin/main`; `.git/info/exclude` carries no custom
+entries. `cloudflared.exe` is ignored, which an earlier note said it was not —
+the entries were added in `b1d2afe`.
+
+Nothing here was restored, removed, staged or re-ignored.
