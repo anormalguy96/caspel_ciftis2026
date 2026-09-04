@@ -213,10 +213,41 @@ describeIfBuilt('initial bundle budget', () => {
   describe('route chunk preload', () => {
     const readMap = (): Record<string, string[]> => {
       const html = readFileSync(join(dist!, 'index.html'), 'utf8');
-      const match = /var m=(\{.*?\}),p=location\.pathname/.exec(html);
+      const match = /var p=location\.pathname,m=(\{.*?\}),g=/.exec(html);
       expect(match, 'no route preload map found in index.html').toBeTruthy();
       return JSON.parse(match![1]) as Record<string, string[]>;
     };
+
+    /** The first-slide preview declared for each product route. */
+    const readPreviews = (): Record<string, string> => {
+      const html = readFileSync(join(dist!, 'index.html'), 'utf8');
+      const match = /,g=(\{.*?\});/.exec(html);
+      expect(match, 'no preview preload map found in index.html').toBeTruthy();
+      return JSON.parse(match![1]) as Record<string, string>;
+    };
+
+    it('declares each product route its own first-slide preview', () => {
+      const previews = readPreviews();
+      expect(Object.keys(previews).sort()).toEqual(['/product/caspel', '/product/erp']);
+      // Each route gets its own slide and only its own: opening the ERP deck
+      // must not fetch the Corporate slide.
+      expect(previews['/product/caspel']).toMatch(/caspel-slide-1-.*\.webp$/);
+      expect(previews['/product/erp']).toMatch(/erp-slide-1-.*\.webp$/);
+    });
+
+    it('points every declared preview at an emitted file', () => {
+      for (const [route, href] of Object.entries(readPreviews())) {
+        const rel = href.replace(/^\/+/, '').replace(/^ciftis\//, '');
+        expect(existsSync(join(dist!, rel)), `${route} -> missing ${href}`).toBe(true);
+      }
+    });
+
+    it('gives the landing page no preview to download', () => {
+      // The same indexOf test the browser performs. Two decks' worth of slide
+      // imagery on the landing page is the regression this avoids.
+      const matched = Object.keys(readPreviews()).filter((key) => '/'.indexOf(key) !== -1);
+      expect(matched).toEqual([]);
+    });
 
     it('declares the viewer and display route chunks', () => {
       const map = readMap();

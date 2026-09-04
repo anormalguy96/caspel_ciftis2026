@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 /**
@@ -252,5 +252,103 @@ describe('first-page priority', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ==========================================================================
+// Progressive replacement
+//
+// The preview stands in for page one until the interactive page has painted.
+// The two failure modes worth guarding are showing page one twice, and taking
+// the slide away before there is anything to replace it with.
+// ==========================================================================
+
+describe('first-slide preview replacement', () => {
+  const preview = {
+    src: '/assets/erp-slide-1-test.webp',
+    width: 1080,
+    height: 608,
+    sourceSha256: 'e7033d04ff59141572ffd4cdd57163c031d7faa39052c51e29424dd0cf50aab7',
+    sourcePage: 1,
+  };
+
+  function neverResolvingLoad() {
+    getDocument.mockReturnValue({
+      promise: new Promise(() => {}),
+      destroy: vi.fn(async () => {}),
+      onProgress: null,
+    });
+  }
+
+  it('shows the slide before the document has loaded', async () => {
+    neverResolvingLoad();
+    render(
+      <PdfViewer
+        url="/api/presentations/erp/stream"
+        preview={preview}
+        previewLabel="First slide of CASPEL ERP Presentation, page 1"
+      />
+    );
+
+    const img = await screen.findByAltText('First slide of CASPEL ERP Presentation, page 1');
+    expect(img).toHaveAttribute('src', preview.src);
+    // Intrinsic dimensions reserve the box, so the canvas replaces it without
+    // moving anything.
+    expect(img).toHaveAttribute('width', '1080');
+    expect(img).toHaveAttribute('height', '608');
+  });
+
+  it('asks the browser to treat the slide as important', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    const img = await screen.findByAltText('Slide');
+    // It is the largest contentful paint on this route and the reason the
+    // visitor navigated here; discovering it lazily would defeat the point.
+    expect(img).toHaveAttribute('loading', 'eager');
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+  });
+
+  it('keeps the slide visible while the document is still loading', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    await screen.findByAltText('Slide');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+    // Removing it when the document resolves rather than when page one paints
+    // would show the visitor an empty box for several seconds.
+    expect(screen.queryByAltText('Slide')).toBeInTheDocument();
+  });
+
+  it('drops the slide if the image itself fails, without blocking the viewer', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    const img = await screen.findByAltText('Slide');
+    fireEvent.error(img);
+
+    // A broken preview degrades to exactly the behaviour that existed before it.
+    await waitFor(() => expect(screen.queryByAltText('Slide')).toBeNull());
+    expect(document.querySelector('.pdf-viewer')).toBeInTheDocument();
+  });
+
+  it('shows nothing extra when a product has no preview', () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/pms/stream" />);
+    expect(document.querySelector('.pdf-viewer__preview')).toBeNull();
+  });
+
+  it('never lets the preview intercept the viewer controls', async () => {
+    neverResolvingLoad();
+    render(<PdfViewer url="/api/presentations/erp/stream" preview={preview} previewLabel="Slide" />);
+
+    await screen.findByAltText('Slide');
+    const box = document.querySelector('.pdf-viewer__preview') as HTMLElement;
+    // Declared in CSS; asserted here because a preview that swallowed taps on
+    // the toolbar would be worse than no preview.
+    expect(box.className).toContain('pdf-viewer__preview');
+    expect(box.getAttribute('data-state')).toBe('visible');
   });
 });
