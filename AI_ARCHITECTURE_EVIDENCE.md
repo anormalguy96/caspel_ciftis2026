@@ -27,6 +27,9 @@ and did not survive contact with primary documentation or measurement.
 | Landing LCP is 3.34 s | **Withdrawn** | Measured against an uncompressed scratchpad server. Against the real nginx image it is **2.13 s** (§7). |
 | The ERP viewer blocks for 1,090 ms | **Withdrawn** | A single run. The three-run median for the same build is **160 ms** (§7). |
 | Byte-range PDF loading would be faster | **Tested and rejected** | It works, and it is slower: corporate TBT 51 → 218 ms, ERP 160 → 373 ms. Reverted (§7). |
+| Viewer LCP measures time to PDF metadata | **Wrong** | LCP is the viewer bar at ~2.8 s; metadata arrives at ~24 s. LCP was gated on route-chunk discovery, which was fixable — so this reported an unfixable cause for a fixable problem (§7). |
+| Streaming is a delivered visitor feature | **Was not** | It was implemented and off by default, and the client discovered that by spending a failed request per question. Now server-advertised, with the enabling contract documented (§10). |
+| The non-streaming path renders citations cleanly | **Wrong** | Grouped markers left "[, ]" in visitor-facing text on the default path, three times in one answer (§10). |
 
 ---
 
@@ -128,6 +131,10 @@ default, and nothing justifies deleting either path.
 ## 5. Streaming
 
 `POST /api/chat/stream`, behind `AI_STREAMING_ENABLED`, **default false**.
+
+This section covers the protocol and its measured latency. **§10 is the
+deployment contract** — what each flag value does, how the browser learns which
+paths exist, and what operations must set for visitors to receive streaming.
 
 ### Measured, three paired runs
 
@@ -274,6 +281,129 @@ a property of the slide, not a defect.
 | Cache | cold — Lighthouse uses a fresh profile per run |
 | Runs | 3 per route; the table reports **medians** |
 
+### Results — final, after the route-chunk preload
+
+Three runs per route, medians, against the project's own nginx image.
+
+| Route | LCP | CLS | TBT | FCP | SI | Perf |
+|---|---|---|---|---|---|---|
+| `/` landing | **1.98 s** ✅ | **0.000** ✅ | **3 ms** ✅ | 1.65 s | 1.65 s | 99 |
+| `/display` | **2.11 s** ✅ | **0.000** ✅ | **0 ms** ✅ | 1.58 s | 1.80 s | 98 |
+| `/product/caspel` | 2.79 s ❌ | **0.015** ✅ | **89 ms** ✅ | 1.94 s | 3.09 s | 93 |
+| `/product/erp` | 2.72 s ❌ | **0.015** ✅ | **141 ms** ✅ | 1.91 s | 2.13 s | 93 |
+
+Targets: LCP ≤ 2.5 s, CLS ≤ 0.1, TBT ≤ 200 ms.
+
+**Two of four routes meet all three targets. The two PDF viewer routes miss LCP
+by roughly a quarter of a second.** No threshold was moved and no run was
+discarded to make that read better.
+
+TBT is a laboratory metric. It is not INP, which is field-only, and it is not
+reported as INP anywhere.
+
+### Before and after, per route
+
+| Route | LCP | CLS | TBT | SI | Perf |
+|---|---|---|---|---|---|
+| landing | 2.13 → **1.98** | 0.000 → 0.000 | 42 → **3** | 1.76 → **1.65** | 98 → **99** |
+| display | 2.19 → **2.11** | 0.000 → 0.000 | 82 → **0** | 2.88 → **1.80** | 97 → **98** |
+| corporate | 2.92 → **2.79** | 0.015 → 0.015 | 98 → **89** | 3.60 → **3.09** | 92 → **93** |
+| erp | 2.91 → **2.72** | 0.015 → 0.015 | 180 → **141** | 2.34 → **2.13** | 92 → **93** |
+
+FCP moves out ~0.17 s on the viewers, because the preloaded chunks compete for
+bandwidth in the first second. That is the trade that buys the LCP and the TBT,
+and it is stated rather than hidden.
+
+### Root cause — correcting what I reported last pass
+
+**I previously wrote that viewer LCP measured "time to document metadata". That
+was wrong and is withdrawn.** Tracing the route with real marks rather than
+inferring from the audit rules:
+
+| Mark | ERP viewer, before | after |
+|---|---|---|
+| First paint | 2,019 ms | 1,293 ms |
+| Viewer module on screen | 3,078 ms | 1,749 ms |
+| **LCP (observer)** | **3,072 ms** | **1,756 ms** |
+| PDF metadata available | 26,708 ms | 24,688 ms |
+| Page count rendered | 26,765 ms | 24,730 ms |
+| First PDF page painted | 26,899 ms | 24,869 ms |
+
+LCP is the viewer bar at ~2.8 s. PDF metadata arrives at ~24 s. They are more
+than twenty seconds apart, so LCP was never measuring the document — it was
+gated on **route-chunk discovery**, which is fixable, while the 5.4 MB deck is
+not. Reporting the wrong cause meant reporting an unfixable problem where a
+fixable one was sitting.
+
+The request sequence showed it plainly. Route chunks sat idle:
+
+```
+   0 -  990ms  document
+1043 - 1806ms  index + vendor + css + font
+1962 - 2724ms  ProductPage, pdf, worker, modal   <- nothing until 1962ms
+```
+
+The browser cannot know a route chunk exists until the main bundle has been
+fetched, parsed and executed as far as the dynamic import.
+
+### Retained: route-chunk preload
+
+Chunk names are written into the document from the bundle at build time, and an
+inline script preloads only the ones matching `location.pathname`. Route chunks
+now start at **646 ms instead of 1,962 ms**.
+
+Only the visited route is preloaded. Measured request counts confirm the landing
+page pays nothing:
+
+| Route | Requests | Route chunks fetched |
+|---|---|---|
+| `/` | 12 | **none** |
+| `/display` | 10 | DisplayPage, qr |
+| `/product/erp` | 17 | ProductPage, pdf |
+
+Transfer size and request count are unchanged — the same bytes arrive earlier.
+Five tests hold it, including that `/` matches no route key and that the map
+works under the corporate subpath as well as the subdomain.
+
+### Reverted: byte-range PDF loading
+
+The viewer sets `disableAutoFetch: true, disableStream: false`. A single ERP run
+had shown TBT 1,090 ms and 5,352 KiB transferred, which looked like the whole
+deck arriving before first paint. Switching to `disableStream: true` makes
+pdf.js fetch byte ranges instead, and the endpoint already answers `206` with
+`Accept-Ranges: bytes`.
+
+It worked — 13 partial responses instead of one body — and it made things worse:
+
+| Route | Metric | `disableStream: false` | `disableStream: true` |
+|---|---|---|---|
+| corporate | TBT | **51 ms** | 218 ms |
+| erp | TBT | **160 ms** | 373 ms |
+| erp | Perf | **91** | 85 |
+
+Range requests trade one streamed body for a series of round trips at 150 ms
+each, and the parsing cost does not go away.
+
+**Reverted.** The 1,090 ms that motivated it was a single run; the three-run
+median for the same configuration is 160 ms. That is exactly the trap the ≥3-run
+protocol exists to prevent, and it nearly produced a "performance fix" that made
+the product slower.
+
+### The remaining miss
+
+Viewer LCP is 2.79 s and 2.72 s against a 2.5 s target. What remains is document
+plus main bundle plus paint; there is no idle serial gap left to remove.
+
+Nothing was done to move LCP onto a different element. Hiding the page-count
+label, or floating a large element into the viewport, would move the number
+without moving the experience — that is metric gaming, and the miss is more
+useful than a manufactured pass.
+
+Time to first PDF page is ~24 s at this throttling, which is the 5.4 MB deck
+arriving over a 1,638 kbps link. It is reported separately from LCP precisely so
+the preload cannot be read as having made the document itself faster. It did
+not; it made the application around the document arrive sooner.
+
 ### The first measurement was invalid, and saying so matters
 
 The first Lighthouse pass ran against a plain static file server in the
@@ -282,99 +412,21 @@ savings of 241 KiB"* from text compression and produced LCP 3.34 s on the
 landing route.
 
 nginx has had `gzip on` the whole time. Those numbers measured the harness, not
-the product, and none of them are reported here. Everything below is against
-the nginx image that actually serves the site.
+the product, and none of them are reported here. Everything above is against the
+nginx image that actually serves the site.
 
 This is the same failure as the OCR heuristic, one layer up: a measurement that
 looked like a result. The rule that caught both is to check what the instrument
 is attached to before believing what it says.
 
-### Results
+### Caching
 
-| Route | LCP | CLS | TBT | FCP | SI | Perf |
-|---|---|---|---|---|---|---|
-| `/` landing | **2.13 s** ✅ | **0.000** ✅ | **42 ms** ✅ | 1.76 s | 1.76 s | 98 |
-| `/display` | **2.19 s** ✅ | **0.000** ✅ | **82 ms** ✅ | 1.82 s | 2.88 s | 97 |
-| `/product/caspel` | 2.99 s ❌ | **0.015** ✅ | **51 ms** ✅ | 1.78 s | 3.49 s | 92 |
-| `/product/erp` | 3.02 s ❌ | **0.015** ✅ | **160 ms** ✅ | 1.70 s | 2.25 s | 91 |
-
-Targets: LCP ≤ 2.5 s, CLS ≤ 0.1, TBT ≤ 200 ms.
-
-**Two of four routes meet all three targets. The two PDF viewer routes miss LCP
-by roughly half a second.** No threshold was moved and no run was discarded to
-make that read better.
-
-TBT is a laboratory metric. It is not INP, which is field-only, and it is not
-reported as INP anywhere.
-
-### Why the viewer routes miss LCP
-
-The LCP element on both viewers is `.viewer-bar__meta` — the page-count label —
-and 84% of its LCP time is render delay, not network:
-
-```
-TTFB          462 ms   16%
-Load Delay      0 ms    0%
-Load Time       0 ms    0%
-Render Delay  2462 ms   84%
-```
-
-The label reads "41 pages", so it cannot paint until pdf.js has parsed enough of
-the document to know how many pages there are. LCP on these routes is therefore
-a measure of time-to-document-metadata. That is real latency a visitor
-experiences, not an artifact, and it is reported as a miss.
-
-Choosing a different element to be the LCP candidate would move the number
-without moving the experience, so it was not done.
-
-### An optimization that was measured and rejected
-
-The viewer sets `disableAutoFetch: true, disableStream: false`. A single ERP run
-had shown TBT 1,090 ms and 5,352 KiB transferred, which looked like the whole
-deck arriving before first paint. Switching to `disableStream: true` makes
-pdf.js fetch byte ranges instead, and the endpoint already answers `206` with
-`Accept-Ranges: bytes`.
-
-It worked — 13 partial responses instead of one full body — and it made things
-worse:
-
-| Route | Metric | `disableStream: false` | `disableStream: true` |
-|---|---|---|---|
-| corporate | TBT | **51 ms** | 218 ms |
-| corporate | Perf | **92** | 88 |
-| erp | TBT | **160 ms** | 373 ms |
-| erp | LCP | 3.02 s | **2.94 s** |
-| erp | Perf | **91** | 85 |
-
-Range requests trade one streamed body for a series of round trips at 150 ms
-each, and the parsing cost does not go away.
-
-**The change was reverted.** The 1,090 ms that motivated it was a single run;
-the three-run median for the same configuration is 160 ms. That is precisely the
-trap the ≥3-run protocol exists to prevent, and it nearly produced a
-"performance fix" for a problem that did not exist.
-
-### The one real defect found, and fixed
-
-`index.html` preloaded `fonts/Inter-var.woff2`. There is no `public/fonts`
-directory. The SPA fallback answered with `index.html`, so the request returned
-**200** and looked healthy; the browser discarded 2.7 KiB of HTML as the wrong
-type, and the font the stylesheet actually wanted was still discovered only
-after the CSS parsed.
-
-Measured on the landing route:
-
-| | Font requests |
+| Resource | `Cache-Control` |
 |---|---|
-| Before | 2 — `/assets/Inter-var-*.woff2` and `/fonts/Inter-var.woff2` (HTML) |
-| After | **1** — `/assets/Inter-var-BT1H-PT_.woff2`, `font/woff2` |
-
-The link is now injected from the bundle, so it always names the hashed file the
-CSS references, in both deployment modes. Two assertions in `BundleBudget.test.ts`
-fail if a preload target is missing from the build or does not match the CSS.
-
-No timing improvement is claimed for this. A paired before/after Lighthouse run
-was not performed, so the evidence is the request count and content type.
+| Hashed assets (`/assets/*`) | `public, max-age=31536000, immutable` |
+| `index.html` | `no-cache, no-store, must-revalidate` |
+| pdf.js worker | `public, max-age=31536000, immutable` |
+| PDF and MP4 | `Accept-Ranges: bytes`, `206` verified |
 
 ### Bundle
 
@@ -385,9 +437,9 @@ was not performed, so the evidence is the request count and content type.
 | `index.css` | 71.8 kB | 13.6 kB |
 | `icons` | 7.1 kB | 1.9 kB |
 | **Initial total** | **326.7 kB** | **99.1 kB** |
-| `pdf` (lazy) | 365.1 kB | 107.6 kB |
-| `CaspelAIModal` (lazy) | 22.5 kB | 7.5 kB |
-| `qr` (lazy) | 16.7 kB | 6.3 kB |
+| `pdf` (route) | 365.1 kB | 107.6 kB |
+| `CaspelAIModal` (route) | 22.5 kB | 7.5 kB |
+| `qr` (route) | 16.7 kB | 6.3 kB |
 
 pdf.js, the AI modal, the QR generator and the display page stay out of the
 initial path. The budget test asserts this by reading the emitted build, not by
@@ -409,7 +461,16 @@ Each cell is checked for horizontal overflow, elements bleeding past the
 viewport that no scroller explains, interactive targets under 44 px that are
 also crowded, text a clipping ancestor actually cuts off, and console errors.
 
-**Result: 0 failures across 144 cells.**
+**Result: 0 failures across 144 cells**, re-run after every change in this pass.
+
+A second matrix covers the states the responsive one cannot reach, because they
+only exist while an answer is being written: 6 viewports × 2 languages ×
+{normal, reduced motion, 200% zoom} = **36 cells, 0 failures**, with streaming
+enabled against the live backend. Each cell checks horizontal overflow during
+and after streaming, entrance animation replaying per delta, composer drift,
+one visitor row and one assistant row, tap targets under 44 px, clipped Chinese,
+raw `SOURCE` markers, citation bracket debris, keyboard focus, failed requests,
+console errors, and cumulative layout shift while citations arrive.
 
 ### Two probe faults were found before any product change
 
@@ -497,34 +558,233 @@ the browser process, so neither Puppeteer's `response` event nor the page's
 
 ---
 
-## 10. Configuration
+## 10. Streaming — the production configuration contract
 
-| Setting | Default | Meaning |
+An implemented stream that no deployment turns on is not a delivered feature.
+This section is the contract operations needs.
+
+### Truth table
+
+| `AI_STREAMING_ENABLED` | Setting resolves to | `GET /api/chat/capabilities` | `POST /api/chat/stream` | What a visitor gets |
+|---|---|---|---|---|
+| absent | `False` | `{"streaming": false}` | `404` | Plain answer on `/api/chat` |
+| `false`, `0`, `no` | `False` | `{"streaming": false}` | `404` | Plain answer on `/api/chat` |
+| `true`, `True`, `1`, `yes` | `True` | `{"streaming": true}` | `200` SSE | Incremental text |
+| `maybe`, `""`, any other | **rejected at start-up** | — | — | The container does not start |
+
+The last row is deliberate. A typo silently read as `false` would leave a
+deployment believing streaming was on; pydantic rejects the value and the
+process fails loudly instead.
+
+`AI_CONTEXT_MODE` behaves the same way: `rag` or `full_context`, anything else
+refuses to start.
+
+### To give visitors streaming
+
+```
+AI_STREAMING_ENABLED=true      # in the deployment's .env
+docker compose up -d backend
+```
+
+**No frontend rebuild is required.** The browser asks the server, so the same
+built assets serve both configurations. Verified by flipping the flag against a
+running stack and re-testing without rebuilding.
+
+### How the client knows — and why it is not a 404 any more
+
+The browser cannot know whether a deployment offers streaming. It used to find
+out the expensive way: attempt `POST /api/chat/stream`, read the 404, then ask
+again on `/api/chat`. Streaming is off by default, so **on a default-configured
+deployment that put a failed request in front of every single visitor
+question.**
+
+`GET /api/chat/capabilities` returns one boolean. Measured through nginx:
+
+| | Requests per question | Wasted |
 |---|---|---|
-| `AI_CONTEXT_MODE` | `rag` | `rag` or `full_context`. Server-owned; the browser cannot select it. An unrecognised value fails production validation rather than falling back silently. |
-| `AI_STREAMING_ENABLED` | `false` | Enables `POST /api/chat/stream`. Off until verified behind a deployment's own proxy. |
-| `AI_STREAM_HEARTBEAT_CHUNKS` | `24` | Heartbeat cadence in provider chunks; `0` disables. |
+| Before | `404 /api/chat/stream` → `200 /api/chat` | **1 per question** |
+| After | `200 /api/chat` | **0** |
+
+plus one capability request per page load, cached for the page's lifetime.
+
+It is deliberately *not* folded into `/api/health`, which reports liveness and
+nothing else so a public probe cannot inventory the deployment. Whether
+streaming exists is already observable from a single request, so publishing it
+discloses nothing new; no environment value, model name or architecture mode
+appears in the response, and five tests assert that.
+
+The answer is a **hint, not a guarantee**. The flag can change between the probe
+and the question under a rolling deploy, so the streaming route still answers
+404 when disabled and the client still falls back. This removed a wasted
+request, not the safety net.
+
+A failed or absent capability route resolves to `streaming: false`. That
+degrades to exactly the behaviour that shipped before streaming existed, which
+is the safe direction and keeps the client compatible with an older backend.
+
+### Fallback and billing safety
+
+The two failure kinds are not alike, and are not treated alike.
+
+| Situation | Was the provider called? | Behaviour |
+|---|---|---|
+| Capability says `false` | No | Straight to `/api/chat`. Invisible. |
+| `404` from the stream route | No | Fall back to `/api/chat`. Invisible. |
+| Stream body ends with no events | Nothing observed | Fall back. Invisible. |
+| `error` event | **Yes** | Honest interrupted state, explicit retry. |
+| Stream ends after partial text | **Yes** | Honest interrupted state, explicit retry. |
+
+**Automatic fallback happens only where nothing was generated.** Once the
+provider has been called, a silent retry would bill a second generation and
+could record the question twice, so the visitor is told and decides.
+
+Partial text is never stored as a finished answer, and `AI_QUESTION` fires
+exactly once per question whichever path answers it.
+
+### Verified through the real nginx image
+
+Both deployment modes, both languages, flag on and off. Mode B was run as
+production runs it: the application container serves at its own root behind a
+vhost that owns the `/ciftis/` prefix.
+
+| Mode | Flag | Result |
+|---|---|---|
+| A `/` | `true` | Incremental text — en 4 growth steps, zh-CN 5 |
+| A `/` | `false` | Plain fallback, **0 wasted requests** |
+| B `/ciftis/` | `true` | Incremental text — en 5 growth steps, zh-CN 5 |
+| B `/ciftis/` | `false` | Plain fallback, **0 wasted requests** |
+
+Every cell: exactly one visitor message, exactly one assistant row, exactly one
+finalized entry, one `AI_QUESTION`, citations and slide thumbnails attached,
+copy available, no raw `SOURCE` marker, no punctuation debris, zero console
+errors.
+
+Frame arrival timing through nginx confirms it is not buffered — `meta` at +0s,
+first delta at +1s, twelve delta frames, then validated `citations`, then
+`done`. A buffering proxy would deliver all of them together at the end.
+
+`Transfer-Encoding: chunked`, `Content-Type: text/event-stream`,
+`cache-control: no-cache, no-transform`, and no `Content-Encoding` — gzip is off
+for this location and on for static assets.
+
+A client that disconnects mid-stream produces no unhandled error in the backend
+log.
+
+### Two defects found by asking the running application real questions
+
+Neither was visible from the code, and neither was caught by the unit tests.
+
+**Citation debris on the default path.** A visitor was reading
+
+> …into a single ecosystem and database **[, ]**.
+
+three times in one answer. The prompt asks for one identifier per bracket pair;
+the model writes groups — `[SOURCE_1, SOURCE_2, SOURCE_3]`. The non-streaming
+path removed each `SOURCE_n` and then tidied only `[ ]`, so the separators
+survived. This was the **default** path: every visitor, every answer.
+
+**Then the test written for that fix caught the next layer.** A Chinese answer
+separates a list with the ideographic comma, so `[SOURCE_1、SOURCE_2]` left
+`[、]`. Full-width separators are now in both the group matcher and the bracket
+cleanup.
+
+Both delivery arms are asserted to produce identical text from identical input.
+Prose inside a bracket is deliberately left alone: `[SOURCE_1 and SOURCE_2]` is
+not a form this system asks for, and deleting words the model wrote to tidy a
+bracket is worse than the bracket.
+
+### A provider failure, observed rather than simulated
+
+During this pass Gemini's streaming endpoint intermittently returned no data at
+all — zero chunks against a 90-second budget — while the non-streaming endpoint
+answered the same question in 3.2s. That produced a genuine end-to-end test of
+the interrupted path: the visitor saw *"The answer was interrupted. Please ask
+again."* with a Try again control, no partial text was stored, and **no second
+generation was billed**.
+
+It also means streaming depends on a provider leg that was not continuously
+available from this network during testing. The plain endpoint remained
+available throughout, which is the reason it stays the default and the rollback.
 
 ---
 
-## 11. Outstanding gates
+## 11. Gate status
 
-Not established by this work and not to be reported as complete:
+### PASS
 
-- **LCP on the two PDF viewer routes.** Measured at 2.99 s and 3.02 s against a
-  2.5 s target. The cause is identified (§7) and the miss is not worked around.
+| Gate | Evidence |
+|---|---|
+| Backend suite, no credentials | **340 passed** with `GEMINI_API_KEY` empty |
+| Frontend suite | **300 passed**, 19 files, from a clean `npm ci` |
+| TypeScript, both projects | clean |
+| Mode A / Mode B production builds | both succeed; base paths and injected preloads correct in each |
+| Bundle budget | 13 assertions against the emitted build |
+| Docker images | backend, nginx Mode A, nginx Mode B all build |
+| `docker compose config` | valid in both modes |
+| `nginx -t` | syntax ok in the running container and the Mode B container |
+| Streaming enabled → visitor receives incremental text | Modes A and B, English and Simplified Chinese |
+| Streaming disabled → plain fallback | **0 wasted requests**, both modes |
+| Streaming not buffered by nginx | `meta` +0 s, first delta +1 s, 12 delta frames, then `citations`, then `done` |
+| Cancellation through nginx | client abort leaves no unhandled backend error |
+| Provider failure after generation starts | honest interrupted state, explicit retry, no second generation |
+| Grouped and split citation markers | 26 tests; both delivery arms produce identical text |
+| English and CJK punctuation | full-width stops and separators handled in both arms |
+| Exactly one transcript entry / one analytics event | asserted in tests and observed in the browser |
+| Responsive matrix | 144 cells, 0 failures |
+| Streaming UX matrix | 36 cells, 0 failures, incl. reduced motion and 200% zoom |
+| Download control | 18 cells, 0 failures; endpoint, filename from `Content-Disposition`, 0 px width change |
+| Auto-scroll | follows at the bottom, holds position when scrolled up |
+| Motion budget | no `transition: all`, no layout-property transitions, no blur > 24 px, 0 permanent compositor layers outside the open modal |
+| CLS | 0.000 on landing and display, 0.015 on both viewers |
+| TBT | 3 / 0 / 89 / 141 ms — all under 200 ms |
+| PDF and MP4 range requests | `206` with correct `Content-Range` |
+| Cache headers | `immutable` on hashed assets, `no-store` on `index.html` |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` |
+| Deep-link refresh | 200 on every route, both modes |
+| Protected assets | five SHA256 hashes byte-identical to `origin/main` |
+| Corpus integrity | 2 documents, 65 chunks, Corporate 24 pages, ERP 41 pages, no fabricated product |
+| No ingestion, no database mutation | read-only throughout |
+| Git hygiene | `.env` untracked; `implementation.md`, `cloudflared.exe` absent from every commit; no build output, caches, profiles or screenshots staged; `git diff --check` clean; secret scan clean |
+
+### FAIL
+
+| Gate | Measured | Target |
+|---|---|---|
+| `/product/caspel` LCP | **2.79 s** | ≤ 2.5 s |
+| `/product/erp` LCP | **2.72 s** | ≤ 2.5 s |
+
+Both improved this pass (2.92 → 2.79 and 2.91 → 2.72) and both remain over.
+The cause is identified and the remaining time is document, main bundle and
+paint. It is recorded as a miss rather than worked around: no element was moved
+or hidden to change which one LCP selects.
+
+### NOT VERIFIED
+
+These need a person, a device, or an environment this work did not have.
+
 - **Real-user INP.** A field metric. Lab TBT is its only laboratory proxy and is
-  labelled as such wherever it appears.
+  labelled as such everywhere it appears.
 - **Real-device measurement.** Every number here is Lighthouse's simulated
   mobile throttling on a desktop CPU, not a phone.
 - **Fluent Simplified Chinese review.** Key parity proves no key is missing and
   says nothing about translation quality.
-- **Assistive-technology testing.** No VoiceOver, NVDA or TalkBack run has been
-  performed; keyboard, focus and live-region results are programmatic checks.
-- **Real network conditions for the viewers.** The decks are 5.4 MB and 24 MB;
-  behaviour on exhibition Wi-Fi with many concurrent visitors is untested.
+- **Assistive-technology testing.** No VoiceOver, NVDA or TalkBack run.
+  Keyboard, focus and live-region results are programmatic checks.
+- **Exhibition network conditions.** The decks are 5.4 MB and 24 MB; behaviour
+  with many concurrent visitors on shared Wi-Fi is untested.
+- **Sustained provider streaming availability.** Gemini's streaming endpoint
+  returned nothing at all from this network for part of this pass, while the
+  non-streaming endpoint kept answering. Streaming works and was verified
+  end to end; its provider leg was not continuously available here.
 - **Cold-start cache behaviour.** The probe never observed a miss.
 - **Cache cost saving.** No published percentage, none observed directly.
-- **Streaming under a production proxy.** Verified against the container nginx
-  configuration only, with `AI_STREAMING_ENABLED` still `false` by default.
 - **Public deployment.** Separate authorization; nothing here was deployed.
+
+### Standing
+
+Every functionality, correctness, accessibility, infrastructure and integrity
+gate passes. Two performance gates do not, and they are named above.
+
+**This is not production-approved.** The human gates in NOT VERIFIED —
+Simplified Chinese review, assistive-technology testing, and a decision on the
+viewer LCP exception — are approvals this work cannot grant itself.
